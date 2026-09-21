@@ -7,7 +7,7 @@ export default {
   prereqs: ["call-option", "put-option"],
 
   oneLiner:
-    "What happens at the instant of expiry decides what you ultimately end up holding. **American** options can be exercised any time, **European** only at expiry; in-the-money options are **auto-exercised** at expiry while sellers are **randomly assigned** to deliver; settlement is either **physical** (stock changes hands) or **cash** (index options settle the difference). Sellers especially must guard against **early assignment**.",
+    "What happens at the instant of expiry decides what you ultimately end up holding. **American** can be exercised any time, **European** only at expiry; add **physical vs cash**, and for index options **AM vs PM settlement** (monthly SPX often AM/SOQ, weeklies/0DTE typically PM). Sellers watch **early assignment**; hedgers watch **hedging the wrong print**.",
 
   intuition: `
 When buying options people watch the premium tick up and down, but rarely think clearly about one big thing: **at the instant of expiry, what does this contract turn into?** Does it vanish into thin air, force you to put up cash for stock, or drop a payment straight into your account? Miss this step and a seller can wake up one morning to find 100 shares and a large debit they never expected.
@@ -25,13 +25,14 @@ Layer on two more dimensions:
 
 Here's an example that scares sellers. You sold a 100-strike call (collecting $3 premium), thinking "expiry is far off." But the stock goes ex-dividend tomorrow for $2, and your call is already deep in-the-money — so to capture that $2 dividend, the counterparty **exercises early**. With no warning you're **assigned**, forced to sell 100 shares at $100. This is **early-assignment risk**, the reef that naked/covered-call sellers must watch most closely.
 
-**In this lesson we break "the instant of expiry" into five pieces:**
+**In this lesson we break "the instant of expiry" into six pieces:**
 
 - **① Exercise vs assignment vs expiry: who acts, who bears**
 - **② American vs European: can you exercise early**
 - **③ Auto-exercise at expiry and the "expire worthless" threshold**
 - **④ Early-assignment risk (especially dividends and deep ITM)**
 - **⑤ Physical vs cash settlement**
+- **⑥ AM vs PM settlement: the print you hedged may not be the settlement print**
 `,
 
   mechanics: `
@@ -82,7 +83,17 @@ This is the piece sellers most need to burn into memory. **Early assignment** is
 
 > The money scale is still **×100** (an index option's multiplier can differ — SPX, for instance, is 100, at $100 per point). A single-stock call worth $5 in-the-money, when exercised, is the physical transaction "buy 100 shares at the strike" for the buyer; if cash-settled, it simply settles a cash difference of 5 × 100 = **$500**.
 
-String these five pieces together and you can **arrange things proactively** before expiry: close what should be closed, ready the shares or cash you should ready, watch the in-the-money short calls you should guard against early assignment on — rather than passively waiting for an unexpected stock position and debit to appear in your account.
+### ⑥ AM vs PM settlement: the wrong print is a real footgun
+
+Cash settlement still asks: **which print?**
+
+- **AM settlement**: monthly SPX often uses the **SOQ** (Special Opening Quotation), not Friday's close you watched.
+- **PM settlement**: most **SPX weeklies and 0DTE** use a regular-session close-related print.
+- **SPY**: American physical, follows the shares, not the SOQ.
+
+The footgun: you thought you were hedging **Friday's close**; the contract settles the **Monday morning AM print** — overnight futures gap, hedge point misses. 0DTE is mostly PM, but do not treat the words "index options" as one print (product map: Stage 2.7).
+
+String the six together and you can **arrange things proactively** before expiry: close what should be closed, ready shares or cash, watch early assignment into dividends, and **ask AM vs PM** — rather than waking up to unexpected shares, a debit, or a cash difference off the wrong print.
 `,
 
   demo: "exercise-sim",
@@ -106,7 +117,7 @@ Remember the logic of this voucher: **the holder holds the initiative, the issue
     "**\"A seller can choose not to be assigned.\"** — You can't. Assignment is drawn **at random** by the clearinghouse from the sellers, and you cannot refuse it. You accepted assignment risk the moment you sold the option — which is exactly why sellers post margin.",
     "**\"American options get exercised early all the time.\"** — In reality it's rare. Early exercise throws away time value and is usually not worth it. The **main exceptions are a call deep ITM before a dividend, and a put deep ITM with time value ≈ 0** — otherwise early-assignment probability is low.",
     "**\"An out-of-the-money option will surely expire worthless, so I can ignore it.\"** — Dangerous. If the underlying suddenly crosses the strike near expiry, the seller can be assigned after the close. Watch OTM shorts too, buying to close early or readying shares/cash if needed.",
-    "**\"All options deliver stock at expiry.\"** — No. **Index options (like SPX) are cash-settled**, settling the difference in cash and mostly European; only **single-stock options** and the like physically deliver 100 shares.",
+    "**\"All options deliver stock at expiry.\"** — No. **Index options (like SPX) are cash-settled**, settling the difference in cash and mostly European; only **single-stock options** and the like physically deliver 100 shares. Cash still asks AM vs PM.",
   ],
 
   quiz: [
@@ -153,6 +164,17 @@ Remember the logic of this voucher: **the holder holds the initiative, the issue
       ],
       answer: 1,
       explain: "An OTM option **expires worthless**: with no intrinsic value, the buyer loses the entire premium and the seller pockets the full premium they originally collected. Only in-the-money options are auto-exercised (Exercise-by-Exception).",
+    },
+    {
+      q: "You hedge with SPY options, thinking “track Friday’s close”; the other side holds a **monthly SPX**. What is the easy footgun?",
+      options: [
+        "Both are American physical, so the settlement print must match",
+        "Monthly SPX is often AM/SOQ; SPY is American physical and follows the shares — the close you hedged may not be the index settlement print",
+        "SPX delivers a basket of stocks, so it is more accurate",
+        "All 0DTE is AM-settled",
+      ],
+      answer: 1,
+      explain: "Monthly SPX is often **AM/SOQ**; SPY is American physical. Weekly/0DTE SPX is typically **PM**. Mixing hedge points is the classic footgun. Product map: Stage 2.7.",
     },
   ],
 

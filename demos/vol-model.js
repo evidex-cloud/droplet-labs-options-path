@@ -63,8 +63,8 @@ export default function mount(root, lang) {
       <p class="demo-meta" id="vm-note"></p>
 
       <p class="demo-tip">${T(
-        "两条用的是<b>同一串冲击 z_t</b>。常数波动率(BS 假设)下，振幅<b>始终均匀</b>——平静和剧烈无差别。GARCH 把“昨天的冲击平方”喂给今天的方差(σ²_t=ω+α·r²+β·σ²)，于是大波动<b>扎堆成风暴</b>、平静期连绵——这才是真实收益率的样子。第三个标签显示 GARCH 的波动率本身怎样随冲击起伏、再均值回归。",
-        "Both use the <b>same shock series z_t</b>. Under constant vol (the BS assumption) the amplitude is <b>uniform throughout</b> — calm and wild look the same. GARCH feeds 'yesterday's squared shock' into today's variance (σ²_t=ω+α·r²+β·σ²), so big moves <b>cluster into storms</b> and calm spells persist — the real shape of returns. The third tab shows GARCH's own volatility rising with shocks then mean-reverting."
+        "两条用的是<b>同一串冲击 z_t</b>。常数波动率(BS 假设)下振幅均匀；GARCH 让大波动<b>扎堆</b>。这是<b>已实现波动的聚集演示</b>，<b>不是交易屏，也不暗示 Heston 是屏幕中间价</b>——台上标记今天的微笑常用 SVI/SABR（阶段 9.3 第⑥块）。",
+        "Both use the <b>same shock series z_t</b>. Constant vol is uniform; GARCH lets big moves <b>cluster</b>. This is a <b>realized-vol clustering demo</b> — <b>not a trading screen, and it does not imply Heston is the screen mid</b>. Desks often mark today's smile with SVI/SABR (Stage 9.3 piece ⑥)."
       )}</p>
     </div>`;
 

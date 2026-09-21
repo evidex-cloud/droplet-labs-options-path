@@ -7,7 +7,7 @@ export default {
   prereqs: ["delta", "gamma"],
 
   oneLiner:
-    "A market maker doesn't bet on direction — after selling an option, they immediately **drive net delta to 0 with the underlying stock**, earning only the bid-ask spread and time value. But delta drifts as the stock moves, so they must **rehedge continuously**. Hidden in this back-and-forth is the core engine of options market making: **positive gamma = buy-low-sell-high scalping that pays the daily Theta rent; negative gamma = the reverse, chasing the move and bleeding the whole way.** The push-and-pull between gamma and theta is the lifeblood of all options market making (Stage 10.3).",
+    "A market maker doesn't bet on direction — after selling an option, they immediately **drive net delta to 0 with the underlying stock**, earning only the bid-ask spread and time value. But delta drifts as the stock moves, so they must **rehedge continuously**. Hidden in this back-and-forth is the core engine of options market making: **positive gamma = buy-low-sell-high scalping that pays the daily Theta rent; negative gamma = the reverse, chasing the move and bleeding the whole way.** The push-and-pull between gamma and theta is the lifeblood of all options market making (Stage 8.3).",
 
   intuition: `
 Imagine you're a market maker who just sold a client **1 at-the-money call, strike 100, 30 days**, collecting **2.45/share** ($245) in premium. You **don't want to bet on the stock going up or down** — you only want that bit of bid-ask spread and time value, and to throw away the directional risk. How do you throw it away?
@@ -33,7 +33,7 @@ And the person on the other side who **bought this call** (**positive gamma**) r
 - **② Delta drifts → you must rehedge continuously as the stock moves**
 - **③ Positive gamma = buy-low-sell-high scalping (gamma scalping)**
 - **④ Negative gamma = chasing-the-move bleed, filled by Theta**
-- **⑤ The gamma-theta push-and-pull: betting on "realized vs implied vol" (continues in Stage 10.3)**
+- **⑤ The gamma-theta push-and-pull: betting on "realized vs implied vol" (continues in Stage 8.3)**
 `,
 
   mechanics: `

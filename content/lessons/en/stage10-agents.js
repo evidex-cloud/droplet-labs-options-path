@@ -7,7 +7,7 @@ export default {
   prereqs: ["backtesting"],
 
   oneLiner:
-    "This is the lesson closest to your \"AI era\" goal in the whole course. **Large language models (LLMs) and agents** can genuinely amplify a retail quant's capabilities: **explain concepts, generate pricing/backtesting code (Stages 11.3/11.4), build data pipelines, propose strategies, read and summarize filings.** But to do it right, the core is not \"let AI trade for you\" but **human-in-the-loop**: you handle judgment, verification, and risk control; AI handles acceleration. **An LLM will confidently talk nonsense** — blindly trusting its generated code or conclusions is the most expensive mistake on this path.",
+    "This is the lesson closest to your \"AI era\" goal in the whole course. **Large language models (LLMs) and agents** can genuinely amplify a retail quant's capabilities: **explain concepts, generate pricing/backtesting code (Stages 11.3/11.4), build data pipelines, propose strategies, read and summarize filings.** In 2026, using an LLM for **research and coding** is normal — not a secret weapon, and not ChatGPT-alpha. The core is still **human-in-the-loop**. **Do not auto-send 0DTE.** The live-money bottleneck is still often **TCA (Stage 10.6)**, not the prompt. **An LLM will confidently talk nonsense.**",
 
   intuition: `
 You came to learn options, and behind it there's probably a bigger thought: **in the AI era, can one person, with these tools, do what used to take a whole team?** This lesson answers that head-on — no hype, no cynicism — laying out clearly **what LLMs and agents can actually do for a retail quant, and where you must be the gatekeeper.**
@@ -94,7 +94,7 @@ String all of the above into a modern retail quant's actual pipeline (the demo o
 4. **Backtest** (AI runs → you check): obtain return/Sharpe/drawdown. — *You audit the checklist: look-ahead bias? costs? overfitting?*
 5. **Human review** (you): this is the **un-skippable** gate. Is the conclusion credible? Where's the risk? — *You decide to continue or overturn.*
 6. **Paper trading** (you + AI monitoring): run on a simulated account for a while, verify execution and slippage. — *You confirm live behavior matches the backtest.*
-7. **Execute** (you authorize): start small-size live, AI may assist order placement/monitoring, but **the action that triggers real money is authorized by you**, with risk control in place (Stages 10.6, 8.1).
+7. **Execute** (you authorize): start small-size live, AI may assist order placement/monitoring, but **the action that triggers real money is authorized by you**, with risk control in place (Stages 10.6, 8.1). **Especially do not auto-send 0DTE** — same-day Gamma, cutoffs and pin (Stages 2.6, 11.6) have no room for hallucinations. What often eats the retail edge is still the bid-ask and slippage (**TCA remains the bottleneck**), not a missing sentence in the prompt.
 
 > This chain is exactly what Stage 11.5 "Build an AI-Assisted Trading Workflow" will land and implement. Its beauty is: **AI cuts the engineering time of each link by ninety percent, letting one person cover the whole chain of research → implementation → verification; its discipline is: every node that affects real money has a gate you personally guard.**
 
@@ -127,7 +127,7 @@ The senior surgeon's correct usage is not "let AI operate for me" but **human-in
     "**\"If AI's code runs, it's correct — take it straight to trading.\"** — No. 'It runs' ≠ 'it's correct': convention errors, boundary bugs, and quiet look-ahead leakage can make it run happily yet draw entirely wrong conclusions. You must **read line by line, validate against known answers** (e.g., BS computing the classic 10.45), check for leakage and costs, then paper trade (Stages 9.1, 10.1).",
     "**\"The facts/data/history an LLM gives are credible and can serve as evidence.\"** — It **hallucinates**: fabricating nonexistent APIs, mis-remembering historical figures, giving outdated information — all in an extremely assured tone. Treat its output as a **draft to be reviewed**, and cross-verify key facts against **primary sources.**",
     "**\"A pretty backtest (high Sharpe) coming from AI is more credible and ready for real money.\"** — Coming from AI, it warrants more wariness. Pass three gates first: **look-ahead bias/leakage? Were transaction costs counted? Is it overfit out-of-sample?** (Stages 10.1, 10.6, 9.6) Before any strategy touches real money you must **paper trade first**, start small, and have risk control.",
-    "**\"An agent can execute autonomously in multiple steps, so let it run end-to-end, including placing real orders.\"** — Autonomous ≠ trustworthy. An agent can amplify an error at every step. Set a **human gate at the real-money nodes**: research/coding/backtesting can be left to it, but order placement and capital movements are **explicitly authorized** by you, with real-time risk control (Stages 10.6, 8.1).",
+    "**\"An agent can execute autonomously in multiple steps, so let it run end-to-end, including placing real orders.\"** — Autonomous ≠ trustworthy. Research/coding can be 2026-normal, but **do not auto-send 0DTE**; orders and capital are **explicitly authorized** by you. TCA (Stage 10.6) is still the bottleneck. There is no ChatGPT-alpha.",
   ],
 
   quiz: [

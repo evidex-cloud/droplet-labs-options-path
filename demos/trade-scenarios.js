@@ -56,8 +56,8 @@ export default function mount(root, lang) {
               "Skip it, or switch to a liquid contract/expiry (tight spread, high open interest)"),
       imp: T("直接按市价单买入，反正我看好方向",
              "Just market-buy it — I like the direction anyway"),
-      meta: T("这是【无视流动性】。0.10/0.90 的价差意味着一进一出先亏掉巨大滑点，足以吃光你的全部优势。永远先查价差和未平仓量（阶段 2.4、10.6）。",
-              "This is IGNORING LIQUIDITY. A 0.10/0.90 spread means round-trip slippage that can erase your entire edge. Always check spread and open interest first (Stages 2.4, 10.6)."),
+      meta: T("这是【无视流动性】。0.10/0.90 的价差意味着一进一出先亏掉巨大滑点，足以吃光你的全部优势。永远先查价差和未平仓量（阶段 2.1、10.6）。",
+              "This is IGNORING LIQUIDITY. A 0.10/0.90 spread means round-trip slippage that can erase your entire edge. Always check spread and open interest first (Stages 2.1, 10.6)."),
     },
     {
       q: T("你正要开仓，但还没想好什么时候止盈、什么时候止损。你？",

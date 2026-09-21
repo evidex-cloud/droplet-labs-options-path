@@ -48,13 +48,15 @@ export const COURSE = {
     },
     {
       n: 2, tier: "intro", title: "读懂与交易期权", titleEn: "Reading & Trading Options",
-      blurb: "期权链 · 损益图 · 盈亏平衡 · 下单与保证金", blurbEn: "Option chain · Payoff diagrams · Breakeven · Orders & margin",
+      blurb: "期权链 · 损益图 · 盈亏平衡 · 下单 · 0DTE · 产品地图", blurbEn: "Option chain · Payoff diagrams · Breakeven · Orders · 0DTE · Product map",
       lessons: [
         { id: "option-chain", title: "读懂期权链：报价表怎么看", titleEn: "Reading the Option Chain", module: "./content/lessons/stage2-chain.js", status: "ready", difficulty: 1, personas: ["beginner", "trader", "hedger", "quant"] },
         { id: "payoff-diagrams", title: "损益图入门：期权交易者的“地图”", titleEn: "Payoff Diagrams 101: The Trader's Map", module: "./content/lessons/stage2-payoff.js", status: "ready", difficulty: 1, personas: ["beginner", "trader", "hedger", "quant"] },
         { id: "breakeven", title: "盈亏平衡点与回报计算", titleEn: "Breakeven & Computing Your Return", module: "./content/lessons/stage2-breakeven.js", status: "ready", difficulty: 1, personas: ["beginner", "trader", "hedger"] },
         { id: "exercise-assignment", title: "行权、指派与到期：美式/欧式、现金/实物交割", titleEn: "Exercise, Assignment & Expiry", module: "./content/lessons/stage2-exercise.js", status: "ready", difficulty: 2, personas: ["trader", "hedger", "quant"] },
         { id: "orders-margin", title: "下单与执行：买开卖平、bid/ask、保证金", titleEn: "Orders & Margin: Bid/Ask, Open/Close, Collateral", module: "./content/lessons/stage2-orders.js", status: "ready", difficulty: 2, personas: ["trader", "hedger"] },
+        { id: "zerodte-spx", title: "0DTE：同一天到期的 SPX 期权已经是主带", titleEn: "0DTE: Same-Day SPX Options Are Now the Tape", module: "./content/lessons/stage2-zerodte.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "hedger", "quant"] },
+        { id: "product-map-2026", title: "2026 产品地图：SPY / SPX / XSP / IBIT / Deribit", titleEn: "2026 Product Map: SPY / SPX / XSP / IBIT / Deribit", module: "./content/lessons/stage2-product-map.js", status: "ready", difficulty: 2, personas: ["trader", "hedger", "quant"] },
       ],
     },
     {
@@ -163,6 +165,20 @@ export const COURSE = {
         { id: "ai-trading-workflow", title: "搭一套 AI 辅助的交易工作流", titleEn: "Build an AI-Assisted Trading Workflow", module: "./content/lessons/stage11-ai-workflow.js", status: "ready", difficulty: 2, personas: ["trader", "quant"] },
         { id: "traps-lessons", title: "常见陷阱与教训：指派、钉住、流动性、财报", titleEn: "Common Traps: Assignment, Pin Risk, Liquidity, Earnings", module: "./content/lessons/stage11-traps.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "hedger"] },
         { id: "cheatsheet", title: "附录：关键公式与数字速查", titleEn: "Appendix: Formula & Numbers Cheat Sheet", module: "./content/lessons/stage11-cheatsheet.js", status: "ready", difficulty: 1, personas: ["beginner", "trader", "hedger", "quant"] },
+      ],
+    },
+    {
+      n: 12, tier: "systems", title: "永续合约", titleEn: "Perpetual Futures",
+      blurb: "无到期 · 资金费 · 标记价 · 强平与 ADL", blurbEn: "No expiry · Funding · Mark price · Liquidation & ADL",
+      lessons: [
+        { id: "what-is-perp", title: "永续合约是什么：没有到期日的线性互换", titleEn: "What Is a Perp: A Linear Swap With No Expiry", module: "./content/lessons/stage12-what-is-perp.js", status: "ready", difficulty: 1, personas: ["beginner", "trader", "hedger", "quant"] },
+        { id: "mark-index-last", title: "指数价、标记价、最新价：谁说了算", titleEn: "Index, Mark, Last: Which Price Counts", module: "./content/lessons/stage12-mark-index.js", status: "ready", difficulty: 2, personas: ["trader", "quant"] },
+        { id: "funding-rate", title: "资金费率：溢价、夹断、8 小时对 1 小时", titleEn: "Funding: Premium, Clamp, 8h vs 1h", module: "./content/lessons/stage12-funding.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "quant"] },
+        { id: "margin-liquidation", title: "保证金与强平：逐仓、全仓、维持保证金", titleEn: "Margin and Liquidation: Isolated, Cross, Maintenance", module: "./content/lessons/stage12-margin-liq.js", status: "ready", difficulty: 2, personas: ["trader", "hedger"] },
+        { id: "insurance-adl", title: "保险基金与 ADL：穿仓以后谁买单", titleEn: "Insurance Fund and ADL: Who Pays After Bankruptcy", module: "./content/lessons/stage12-adl.js", status: "ready", difficulty: 3, personas: ["trader", "hedger", "quant"] },
+        { id: "perp-venues-2026", title: "2026 永续场所：CEX、Hyperliquid、CME", titleEn: "Perp Venues in 2026: CEXs, Hyperliquid, CME", module: "./content/lessons/stage12-venues.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "quant"] },
+        { id: "perps-vs-options", title: "永续 vs 期权：线性、凸性、三套工具", titleEn: "Perps vs Options: Linear, Convex, Three Toolkits", module: "./content/lessons/stage12-vs-options.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "hedger"] },
+        { id: "perp-traps", title: "永续陷阱：资金费、隐藏杠杆、ADL 与假 APR", titleEn: "Perp Traps: Funding Drag, Hidden Leverage, ADL, Fake APR", module: "./content/lessons/stage12-traps.js", status: "ready", difficulty: 2, personas: ["beginner", "trader", "hedger", "quant"] },
       ],
     },
   ],

@@ -25,7 +25,7 @@ More dangerous still, these mistakes **have fixed scripts** and play out repeate
 - **Revenge trading**: just took a loss, furious, immediately double the next order to "win it back" — emotion-driven, often losing more.
 - **Clinging to losers, rushing winners**: winners are sold after holding three days, losers stay underwater for three months still waiting to be made whole.
 - **Selling naked into earnings**: to collect a little premium, selling naked options before a known big-gap event like earnings — a classic "picking up pennies in front of a steamroller," leveraged up (Stage 8.3, 8.4).
-- **Ignoring liquidity**: entering and exiting dead contracts with a 0.10/0.90 bid-ask spread, where slippage alone eats your entire edge (Stage 2.4).
+- **Ignoring liquidity**: entering and exiting dead contracts with a 0.10/0.90 bid-ask spread, where slippage alone eats your entire edge (Stage 2.1).
 - **No plan**: before opening, not knowing when to take profit, when to stop out, or the worst-case loss — so you're left dragged around by emotion in the moment.
 
 > One line to cut through it: **none of these are "bad luck," they are predictable, nameable, and therefore preventable behavioral patterns.** Your biggest edge over the trader on the other side is often not being smarter, but being more disciplined.
@@ -59,7 +59,7 @@ Expand the list from the intuition section and see the mechanism and cost of eac
 - **Revenge trading**: just took a loss, emotionally heated, immediately place a bigger order to win it back instantly. This is the classic case of **overriding rules with emotion**, often snowballing a small loss into a disaster. The right approach: a **forced cooling-off period** after a loss, never adding size to win it back.
 - **Clinging to losers, slashing winners**: see piece ③ (the disposition effect).
 - **Selling naked before earnings/events**: earnings, FDA approvals, M&A announcements are **known big-gap** risks. Selling naked options beforehand (unlimited risk, Stage 8.1) to collect a thin premium is bending down to pick up pennies as the steamroller accelerates (Stage 8.3). IV is inflated before the event (the other side of IV crush), the temptation is great, but it's a classic blow-up script.
-- **Ignoring liquidity**: trading contracts with **extremely wide bid-ask spreads and very low open interest** (e.g. bid 0.10 / ask 0.90, Stage 2.4). One round trip in and out and you're eaten by huge costs, and no strategy can survive this **slippage** leak (Stage 10.6). Always check the spread and open interest.
+- **Ignoring liquidity**: trading contracts with **extremely wide bid-ask spreads and very low open interest** (e.g. bid 0.10 / ask 0.90, Stage 2.1). One round trip in and out and you're eaten by huge costs, and no strategy can survive this **slippage** leak (Stage 10.6). Always check the spread and open interest.
 - **No trading plan**: before opening, not having defined the **entry reason, target/take-profit, stop-loss, max loss, holding time**. With no plan, every move during the session is taken over by emotion — and emotion (see ①) is systematically wrong.
 
 ### ③ The disposition effect: cut your profits, let your losses run
@@ -79,7 +79,7 @@ The only reliable weapon against emotion is to **move the decision forward** to 
 - **Sizing**: is this trade's worst-case loss ≤ 1–2% of the account? Did you size contracts backward from the max loss? (Stage 8.1)
 - **Reason**: what's my entry logic? Is it an edge, or just itchy hands / revenge?
 - **Take-profit / stop-loss**: what's the target? Where's the stop? What's the worst loss (known and acceptable)?
-- **Liquidity**: is the bid-ask spread narrow enough? Is open interest large enough? Can I close smoothly? (Stage 2.4)
+- **Liquidity**: is the bid-ask spread narrow enough? Is open interest large enough? Can I close smoothly? (Stage 2.1)
 - **Events**: is there an earnings/major event during the holding period? Am I selling naked into a known gap? (Stage 8.3)
 - **Greeks**: are my net delta/gamma/vega/theta what I want? (Stage 5.7)
 

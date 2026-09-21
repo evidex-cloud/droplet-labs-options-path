@@ -37,7 +37,7 @@ We'll compare on consistent terms (underlying now $100, bullish view): **100 sha
 For the same "bullish on a $100 underlying" view, the three tools cost wildly different amounts:
 
 - **Stock**: buy 100 shares = **$10,000**, real money fully committed. What you own is the **asset itself.**
-- **Future**: one contract on the same notional value typically requires only **5%–15% margin** (roughly $500–$1,500, depending on the product and exchange). You **don't own the underlying** — you only track its moves.
+- **Future**: one contract on the same notional value typically requires a margin deposit. This course uses **5%–15%** as an **illustrative band** (roughly $500–$1,500), **not a 2026 exchange official schedule**. You **don't own the underlying** — you only track its moves.
 - **Option**: buy one call with K=105, c=5 = **5 × 100 = $500.** That $500 is everything you pay for the right, **and also your maximum loss.**
 
 Capital efficiency: option ≈ future ≫ stock. But "less committed" doesn't mean "less risky" — see the next item.
@@ -82,6 +82,8 @@ Gather the first four points into one most-fundamental difference. Compare item 
 Precisely because an option can **freely bend the payoff curve**, by stacking several together you can build almost any shape of return: the staircase of a vertical spread, the tent of an iron condor, the V of a straddle... (Stages 6 and 7). **Stocks and futures can only give you a straight line; an option gives you a whole "Lego set of payoff curves."** That, in the end, is what's different.
 
 > A quant coda: line tools (stocks/futures) have a Delta that is a constant (±1, times leverage), with no Gamma; an option's Delta changes with the underlying (that's Gamma), and is sensitive to volatility (Vega). What we call "nonlinearity" comes precisely from that kink — and it's the starting point of the entire pricing and hedging course (Stages 3–5).
+
+> 2026 note: in crypto, the linear leveraged product retail actually meets is usually the **perp** — no delivery date, the clock is **funding** — while dated futures still exist (e.g. CME BTC). Perp / dated future / option are three tools, not three nicknames. Independent module: **Stage 12**.
 `,
 
   demo: "payoff-compare",
@@ -101,6 +103,7 @@ The difference in one line: **driving and racing both "go in a straight line," d
     "**\"Options tie up less capital, so they're safer than stocks.\"** — Less committed ≠ less risky. A long option can **lose the entire premium (−100%)**, and time value melts every day, so you lose even if the underlying sits still (Theta). A stock down 50% still leaves you half; an option that expires out-of-the-money is **a worthless slip of paper.**",
     "**\"Buying stock and buying a call are both bullish, so same effect.\"** — A stock is **linear, no expiry, no time decay**; a call is **kinked, has an expiry, decays to zero.** A call must rise past the breakeven (strike + premium) to truly profit, and time isn't on your side. Their risk structures are completely different (Stage 1.1).",
     "**\"Both futures and options require margin.\"** — Only half right. **In futures both sides post margin** (both have obligations); for options **only the seller posts margin** (the seller has the obligation and the larger risk), and the **buyer, having paid the premium, has no further obligation** and can't be margin-called. This is the direct expression of \"right vs. obligation.\"",
+    "**\"A crypto perp is just a future, so it is basically an option too.\"** — In 2026 the linear leveraged product retail meets is the **perp**: no expiry, the clock is funding not delivery; dated bitcoin futures still trade (CME). Options are convex, pay premium, and have Theta. Do not mix the names. See Stage 12.",
   ],
 
   quiz: [

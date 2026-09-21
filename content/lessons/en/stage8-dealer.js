@@ -7,7 +7,7 @@ export default {
   prereqs: ["gamma", "delta-hedging"],
 
   oneLiner:
-    "The hedging a market maker is forced to do pushes the very market it meant to face neutrally. The key is their **aggregate net gamma position**: **net long gamma → buy dips, sell rallies, hitting the market's brakes (suppressing volatility); net short gamma → chase the move, hitting the market's gas (amplifying volatility, accelerating crashes).** This explains the **gamma squeeze** (2021 meme stocks), the **Vanna/Charm flows** of options-expiration week, and why **GEX (gamma exposure)** has become a must-watch indicator for traders.",
+    "The hedging a market maker is forced to do pushes the very market it meant to face neutrally. The key is their **aggregate net gamma position**: **net long gamma → buy dips, sell rallies, hitting the market's brakes (suppressing volatility); net short gamma → chase the move, hitting the market's gas (amplifying volatility, accelerating crashes).** In 2026 the main SPX exhibit is not “monthly OPEX” but **every day is OPEX**: 0DTE Gamma/Charm runs *intraday* (Stage 2.6). The **2021 meme gamma squeeze stays as history.** GEX describes sticky vs explosive — **it does not forecast direction**.",
 
   intuition: `
 You already know (Stage 8.2): after selling an option, a market maker dynamically hedges with stock to stay delta neutral. Now pull the lens back and ask a bigger question — **when the hedging demand of tens of thousands of option contracts converges into a flood, does it in turn push the stock price itself?** The answer is: **yes, and the direction depends on whether market makers are collectively "long gamma" or "short gamma."**
@@ -28,15 +28,15 @@ Result: market makers become the market's **amplifier** — chasing the move, ma
 
 > One line to grasp the whole picture: **market makers' net gamma is the market's "gas/brake" switch — long gamma hits the brakes (suppress, mean-revert), short gamma hits the gas (amplify, chase the trend, accelerate crashes).**
 
-This mechanism explains several famous phenomena: the **gamma squeeze** (2021 meme stocks, retail frenzy-buying calls forcing market makers to keep buying stock, a self-reinforcing melt-up spiral); around options **expiration week (OPEX)**, the **Vanna flows and Charm flows** driven by IV and time drift (the second-order Greeks of Stage 5.7) systematically pushing the index; and the **GEX (gamma exposure, market makers' total gamma exposure)** that traders increasingly rely on to anticipate whether the market will "stick" or be "explosive."
+This mechanism explains several phenomena. **The 2026 main exhibit**: for SPX, **every day is OPEX** — 0DTE (Stage 2.6) takes the Gamma/Charm that used to bunch into monthly expiry week and spreads it across every regular session and even GTH. Cboe **July 2026** GTH (8:15pm–9:25am ET) monthly ADV **record 224k**, of which SPX GTH **197k** (monthly snapshot, not a live chain). The **2021 meme gamma squeeze stays as a history exhibit**, not the 2026 default script. **GEX** can still be read as “sticky vs explosive,” but it is a **vendor estimate, not an exchange print**, and it **does not forecast up/down**.
 
 **In this lesson we break dealer flows into five pieces:**
 
 - **① Scaling a single hedge up to the whole market: the direction of net gamma**
 - **② Net long gamma = shock absorber (suppress volatility, mean-revert)**
 - **③ Net short gamma = amplifier (chase the move, accelerate crashes)**
-- **④ The gamma squeeze: the self-reinforcing spiral of 2021 meme stocks**
-- **⑤ Vanna/Charm flows into OPEX, and the GEX indicator (continues Stage 5.7)**
+- **④ History exhibit: the 2021 meme-stock gamma squeeze**
+- **⑤ 2026 main exhibit: every day is OPEX for SPX (0DTE Gamma/Charm) and GEX (Stages 2.6, 5.7)**
 `,
 
   mechanics: `
@@ -77,9 +77,9 @@ Market-level consequences:
 
 > Contrast ② and ③: **the same dealer hedging — flip the sign of net gamma, and the market's "personality" switches from mean-reverting (stable) to trend-amplifying (unstable).** This is one of the most useful keys to understanding modern equity-market microstructure.
 
-### ④ The gamma squeeze: a self-reinforcing melt-up spiral
+### ④ History exhibit: the 2021 gamma squeeze
 
-The **gamma squeeze** is an extreme case of net-short-gamma feedback in the **upward direction**, and 2021's meme stocks (GameStop and others) are the textbook example:
+The **gamma squeeze** is an extreme case of net-short-gamma feedback in the **upward direction**. **2021 meme stocks (GameStop and others) stay here as history**, not as the 2026 SPX default story:
 
 1. Huge numbers of retail traders **concentrate on buying OTM calls**. Market makers sell these calls, taking on **negative gamma + negative delta**.
 2. To hedge the negative delta, market makers **buy stock**. The buying pushes the price up.
@@ -88,15 +88,16 @@ The **gamma squeeze** is an extreme case of net-short-gamma feedback in the **up
 
 This often stacks with a **short squeeze** (trapped shorts also covering by buying), the two buying flows resonating. The key point: **what drives the price isn't information or value, but the mechanical buying of options hedging** — once the call buying pauses or large amounts expire, gamma support vanishes, and the price often falls back just as violently (a reverse negative-gamma drop).
 
-### ⑤ Vanna/Charm flows into OPEX, and GEX
+### ⑤ 2026 main exhibit: every day is OPEX
 
-Finer market-pushing comes from hedging flows driven by **second-order Greeks (Stage 5.7)** and tied to time and IV, especially pronounced around **monthly options expiration (OPEX)**:
+Finer pushing comes from **second-order Greeks (Stage 5.7)**, and on 2026 SPX it is **intraday**. 0DTE (Stage 2.6) means Charm/Gamma no longer wait for monthly expiry Friday — **every session close is a mini-OPEX**. Structurally a lot of 0DTE is capped-risk, so dealers are often **net long gamma** and the hedge looks like brakes (mean reversion), not a crash machine. Short-gamma windows still happen; do not write 0DTE as “the 2026 crash button.”
 
-- **Charm flow (delta drifting with time)**: even if the stock doesn't move, as expiry nears the delta of many options **automatically drifts toward 0 or ±1** (Stage 5.7). Market makers must adjust their hedges accordingly — under the typical "market makers long gamma + holding lots of short OTM puts" structure, charm creates **systematic stock buying** during expiration week, one mechanism behind the "index tends to rise before OPEX" claim.
-- **Vanna flow (delta drifting with IV)**: when the market rises and IV falls (the negative correlation, the skew of Stage 4.3), the change in market makers' hedged put delta forces them to **buy stock**, further fueling the rise; conversely, when IV spikes, Vanna flow fuels the drop. **Vanna couples the "volatility world" with the "direction world,"** a hidden upward force in low-volatility rallies.
-- **GEX (Gamma Exposure, market makers' total gamma exposure)**: estimate and sum the market makers' gamma across all market options into one number. **GEX positive (net long gamma) → expect the market suppressed, low volatility, mean-reverting; GEX negative (net short gamma) → expect the market amplified, high volatility, explosive**. There's also the **gamma flip point (zero-gamma level)** — above it market makers are long gamma (stable), below it short gamma (unstable), and breaking below it is often the switch for a volatility surge. GEX has become a routine gauge for many traders to judge whether the tape is "stable/explosive."
+- **Charm flow (delta drifting with time)**: even if the index sits still, with hours left delta **drifts toward 0 or ±1**. Dealers must rebalance **during the session**. Monthly OPEX week did not vanish; daily 0DTE simply dominates the tape.
+- **Vanna flow (delta drifting with IV)**: rallies with falling IV (Stage 4.3 skew) can force stock buying; IV spikes can force selling. **Vanna couples the vol world to the direction world.**
+- **GTH**: Cboe Global Trading Hours **8:15pm–9:25am ET**. **July 2026** GTH monthly ADV **record 224k**, SPX GTH **197k** (monthly snapshot). Hedging flows are not RTH-only.
+- **GEX**: an **estimate** of aggregate dealer gamma. **Positive GEX → damped, mean-reverting; negative → amplified, explosive**, plus a gamma flip point. It is a **vendor estimate**, not an exchange print. **GEX does not forecast direction** — that is what the quiz nails down.
 
-Stringing the five together: **the hedging flood market makers are forced to do pushes the market in turn, with direction depending on their net gamma — net long gamma hedges counter-trend (buy dips, sell rallies) as a shock absorber, suppressing volatility and creating mean reversion and pinning; net short gamma hedges with-trend (chase the move) as an amplifier, self-reinforcing trends and accelerating crashes; the gamma squeeze is its extreme upward spiral (2021 meme stocks); and the hedging flows driven by second-order Greeks like Vanna/Charm (Stage 5.7) systematically push the index at OPEX, while GEX and the gamma flip point quantify all of this into readable indicators.** You've now seen that a single hedging action can converge into a force that moves the broad market — this "market as a reflexive system" view is exactly the reality that must be incorporated when modeling market making and execution with reinforcement learning in Stage 10.3.
+Stringing the five: **net gamma decides brake vs gas; 2021 gamma squeeze is history; the 2026 SPX story is daily-expiry 0DTE Gamma/Charm (Stage 2.6) plus GTH; GEX reads character, not direction.** RL market making (Stage 10.3) has to put this reflexivity in the simulator — that is a tooling lesson, not a license to treat GEX as a directional oracle.
 `,
 
   demo: "dealer-gamma",
@@ -108,14 +109,14 @@ Dealer hedging flows are like **a driver-assistance system installed in the mark
 
 **Net short gamma is like a crazed, miswired system that "floors the gas in the direction of the skid" (the amplifier).** The car slides slightly left, and instead of correcting, it **adds gas** to the left, flinging the car harder; slide right and it guns the gas right. A tiny bump keeps getting amplified by it, eventually escalating into an out-of-control spin. **The fast, violent drops of a crash are this system "frantically chasing-to-sell on the way down" — the more it falls, the harder it floors the gas, snowballing out of control.** The 2021 meme-stock gamma squeeze is the same system losing control upward: retail's call buying forces market makers to keep chase-buying, flooring the gas to push the car sky-high.
 
-And the **GEX indicator** is the dashboard that reads out in advance "is this car running the stability system or the runaway gas pedal today": **GEX positive, the road is stable today, you can relax; GEX flips negative, buckle up — any little pothole could get amplified into an accident.** Seasoned traders glance at this gauge before getting in — because the same road conditions, under "stability system" versus "runaway gas pedal," are two completely different fates.
+And **GEX** is an **estimated** gauge: “does today look more like stability control or a runaway pedal.” **Positive GEX does not guarantee a rally; negative GEX does not guarantee a drop** — it talks about volatility character. In 2026 remember: the SPX car **passes an expiry station every day** (0DTE, Stage 2.6), not once a month.
 `,
 
   misconceptions: [
     "**\"Market makers stay delta neutral, so they have no effect on the market.\"** — Quite the opposite. Precisely because they must **maintain** neutrality, they must continuously buy and sell stock as the price moves, and this hedging flood pushes the market in turn. The direction of the effect depends on their **net gamma**: long gamma suppresses volatility, short gamma amplifies it (Stage 8.2).",
     "**\"A gamma squeeze happens because the company's fundamentals improved.\"** — No. The driver of a gamma squeeze (like 2021 meme stocks) is the **mechanical buying of options hedging**: retail buys calls → market makers buy stock to hedge → price rises → delta/gamma grow → buy more stock… nothing to do with value. Once the call buying pauses or expires, support vanishes and the price often falls back just as violently.",
     "**\"When market makers are net short gamma, drops get cushioned by their buying.\"** — Backwards. When net short gamma, hedging is **with-trend**: a drop means they must **dump**, a rally means they must **chase-buy**. So short gamma **amplifies and accelerates crashes** (the snowball of selling more the more it falls). Drops cushioned and suppressed by buying are the **net-long-gamma** case. The two are exactly opposite — be sure to distinguish them.",
-    "**\"Vanna and Charm are purely academic concepts with no effect on real prices.\"** — Under enormous options exposure, they are real, hard-dollar forces. The hedging flows driven by charm (delta drifting with time) and vanna (delta drifting with IV) systematically buy and sell index constituents during **options expiration week (OPEX)**, the mechanism behind phenomena like \"tends to rise before OPEX\" (Stage 5.7).",
+    "**\"Vanna and Charm are purely academic concepts with no effect on real prices.\"** — Under enormous options exposure, they are real, hard-dollar forces. On 2026 SPX, Charm/Gamma mostly finish **intraday in 0DTE** (every day is OPEX, Stages 2.6, 5.7), rather than waiting only for monthly expiry week.",
     "**\"GEX (gamma exposure) can precisely predict the market's up/down direction.\"** — It can't. GEX signals the market's **volatility character** (suppressed or amplified, stable or explosive), not its up/down **direction**. GEX positive ≈ low-volatility mean reversion, negative ≈ high-volatility explosiveness; breaking below the \"gamma flip point\" is often the switch for a volatility surge. Treating it as a directional timing tool is a misuse.",
   ],
 
@@ -170,5 +171,6 @@ And the **GEX indicator** is the dashboard that reads out in advance "is this ca
     { label: "Investopedia: Gamma Squeeze (gamma squeeze and 2021 meme stocks)", url: "https://www.investopedia.com/what-is-a-gamma-squeeze-5212335" },
     { label: "SqueezeMetrics: The Implied Order Book (GEX and dealer hedging flows white paper)", url: "https://squeezemetrics.com/monitor/download/pdf/white_paper.pdf" },
     { label: "Investopedia: Dealer / Market Maker Hedging", url: "https://www.investopedia.com/terms/m/marketmaker.asp" },
+    { label: "TradeInformer: Cboe July 2026, 0DTE 66.2% of SPX volume", url: "https://tradeinformer.com/institutional-trading/cboe-reports-july-options-and-fx-growth-as-0dte-reaches-66-2-of-spx-volume" },
   ],
 };

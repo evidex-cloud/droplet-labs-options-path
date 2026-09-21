@@ -16,7 +16,7 @@ These traps share a trait: **none of them are visible at the moment you place th
 
 We'll break down the seven most common ones, each with "**why it's a trap + how to avoid it**":
 
-**In this lesson we break "common traps" into seven:**
+**In this lesson we break "common traps" into eight:**
 
 - **① Early assignment: a deep-ITM short call before ex-dividend**
 - **② Pin risk: the price lands right on the strike at expiry**
@@ -25,6 +25,7 @@ We'll break down the seven most common ones, each with "**why it's a trap + how 
 - **⑤ Earnings IV collapse: you bought at the most expensive moment, it evaporates next day**
 - **⑥ Over-leveraging: one oversized position hitting a mine cripples the account**
 - **⑦ Ignoring corporate actions: splits, special dividends, and mergers change the contract**
+- **⑧ 0DTE: same-day pin, cutoffs, Gamma; defined-risk is still not free**
 `,
 
   mechanics: `
@@ -87,7 +88,16 @@ The mechanics: after a 2-for-1 split, for instance, your contract may become a h
 
 - **How to avoid it**: when a holding faces a corporate-action announcement, **look up the OCC's adjustment memo for that contract** (adjusted contracts often carry a special marking). Don't use pre-adjustment intuition to compute a post-adjustment contract.
 
-Looking at the seven traps together, their common thread is: **mechanical risk beyond direction, invisible when you order, surfacing only at a specific moment.** The countermeasures are common too — **mark the ex-dividend, expiry, earnings, and corporate-action dates on your map ahead of time, watch liquidity and sizing, and at the critical moment close proactively rather than betting on luck.** Turn these into your **pre-entry / pre-expiry checklist** (Stage 8.6) and you'll avoid the spills beginners take most often. **This is educational content, not investment advice.**
+### ⑧ 0DTE: same-day pin, cutoffs, Gamma
+
+0DTE (Stage 2.6) compresses several of the traps above into **a few hours**:
+
+- **Same-day Gamma**: ATM delta can jump from 0.4 to 0.9 in an hour; a short cannot rehedge in time.
+- **Same-day pin**: the close sits on a strike, the cash PM print ticks, the P&L redraws.
+- **Cutoffs**: do-not-exercise, amend, and close cutoffs are **today**. Miss them and you get the settlement print.
+- **Defined-risk is still not free**: a spread caps max loss and still bills spread, Theta, and gaps. Do not read “I bought a spread” as a zero-risk casino pass, and do not teach 0DTE as a crash machine.
+
+Looking at the eight traps together, their common thread is: **mechanical risk beyond direction, invisible when you order, surfacing only at a specific moment.** Mark ex-dividend, expiry, earnings, corporate actions, **and 0DTE cutoffs** on the map, watch liquidity and size, and close at the margin rather than betting. Turn this into a **pre-entry / pre-expiry checklist** (Stage 8.6). **This is educational content, not investment advice.**
 `,
 
   demo: "trap-scenarios",
@@ -112,6 +122,7 @@ People who avoid the pits aren't lucky — they **hold a map marking every pit a
     "**\"Leave a near-expiry ITM option alone; the broker handles it.\"** — It will **auto-exercise** (common threshold 0.01), which can passively saddle you with 100 shares, tie up a large sum, or even trigger a margin call. To get out, **sell to close** proactively; if you don't want the stock, submit a **\"do-not-exercise\" instruction** (Stage 11.1).",
     "**\"Buy options before earnings, bet on a big move, easy profit.\"** — You bought when **IV is most expensive**, and the post-earnings **IV collapse (vol crush)** often loses you money even when the direction is right. The rich premium is the market pricing in the gap — no free lunch; if you trade it, use a defined-risk structure and don't sell naked into earnings (Stage 8.6).",
     "**\"A cheap 0.10/0.90 option is worth buying if the direction is right.\"** — That's **ignoring liquidity**. The round-trip spread alone can eat all your profit, and you may find no one to take your price when you want out. Always check the **spread and open interest** first, and favor narrow-spread, high-open-interest contracts (Stage 2.1, Stage 10.6).",
+    "**\"A defined-risk 0DTE spread is free.\"** — Max loss can be capped; same-day Gamma, pin, broker cutoffs, spread and gaps are still there (Stage 2.6). Defined-risk is still not free.",
   ],
 
   quiz: [
@@ -158,6 +169,17 @@ People who avoid the pits aren't lucky — they **hold a map marking every pit a
       ],
       answer: 1,
       explain: "Corporate actions like splits, special dividends, and mergers adjust an option's strike, multiplier, or deliverable. You must check the **OCC's adjustment memo** (adjusted contracts often carry a special marking), or your read of P&L, Delta, and risk will be entirely wrong.",
+    },
+    {
+      q: "On 0DTE traps, which is correct?",
+      options: [
+        "A defined-risk 0DTE spread has zero risk and can be auto-sent by an LLM",
+        "Same day still has pin, broker cutoffs, and Gamma exploding; a spread caps max loss but is not free",
+        "0DTE has been proven to be the 2026 crash machine",
+        "European cash settlement means there is no settlement-print risk",
+      ],
+      answer: 1,
+      explain: "Capped ≠ free. Gamma, pin, cutoffs, spread, and gaps all land the same day (Stage 2.6). Do not auto-send (Stage 10.5).",
     },
   ],
 

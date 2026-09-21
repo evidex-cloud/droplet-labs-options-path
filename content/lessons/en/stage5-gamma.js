@@ -88,7 +88,7 @@ $$Why? Because near expiry, that S-shaped Delta curve **narrows sharply, trendin
 
 The consequences are very real:
 
-- **Near-expiry ATM options are "high-Gamma dynamite"**: buyers can use a tiny underlying move to lever Delta and chase explosive gains (also the thrill of 0DTE options); sellers face a Delta that turns on a dime, making hedging extremely hard.
+- **Near-expiry ATM options are "high-Gamma dynamite"**: buyers can use a tiny underlying move to lever Delta and chase explosive gains. 0DTE just does this by the hour — **the full product lesson is Stage 2.6**, not a parenthetical thrill; sellers face a Delta that turns on a dime, making hedging extremely hard.
 - **Pin risk**: at expiry the underlying lands right near the strike, and the seller's Delta whipsaws between 0 and ±1, with no idea how much to hedge or whether they'll be assigned. This is the direct manifestation of high Gamma on expiration day.
 
 > The control group: **deep OTM** options' Gamma instead **collapses toward 0** near expiry (a 7-day call at S=100, K=110 has Gamma ≈ 0.0004), because it's essentially hopeless and Delta has long been locked at 0. So "Gamma explodes at expiry" refers specifically to **near ATM.**

@@ -24,13 +24,14 @@ These two facts show: **to price options more realistically and forecast volatil
 
 The demo on the right uses a simple GARCH-style recursion to generate a return series with **volatility clustering**, side by side with "constant volatility" — you can see at a glance how storms cluster.
 
-**In this lesson we break volatility modeling into five pieces:**
+**In this lesson we break volatility modeling into six pieces:**
 
 - **① Why constant volatility isn't enough: clustering + the smile**
 - **② GARCH: modeling volatility clustering, forecasting realized volatility**
 - **③ Local volatility (Dupire): σ(S,t) fitting today's surface exactly**
 - **④ Stochastic volatility (Heston): σ itself random, endogenously growing the smile**
 - **⑤ Jumps and fat tails: patching in the "instant gap"**
+- **⑥ Mark vs dynamics: SVI/SABR mark today; Heston is not the screen**
 `,
 
   mechanics: `
@@ -92,7 +93,18 @@ Continuous-diffusion models (constant, local, or stochastic volatility alike) al
 
 Models like **Merton jump-diffusion** and **Bates (Heston + jumps)** layer a Poisson jump term on top of diffusion to patch this in. In practice, jumps are nearly inescapable when pricing short-term, deep-OTM options (such as the deep-OTM puts used for tail hedging, Stage 8.4).
 
-Stringing these five together: **constant volatility can't capture clustering and the smile → GARCH models "realized volatility that clusters" for forecasting → local volatility σ(S,t) fits today's surface exactly → stochastic volatility Heston lets σ be random, endogenously growing the smile and skew → jumps patch in the instant gap and fat tails.** This "model volatility itself" chain is the key link connecting Black-Scholes (Stage 4.1) with modern exotic-option pricing (Stage 9.4), and the starting point for **forecasting volatility (Stage 10.1)** with machine learning in AI quant — what the neural network learns is precisely the volatility dynamics these models try to characterize.
+### ⑥ Mark vs dynamics: fitting today ≠ forecasting tomorrow
+
+A 2026 desk's division of labor is more boring than “everyone runs Heston”:
+
+- **Mark**: interpolate the **smile already observed today** into a quotable surface. In practice that is often **SVI or SABR** — **go through today's points without obvious internal arb**. That is **interpolation**, not a weather forecast.
+- **Dynamics**: **Heston, local vol, jumps** answer “how the surface **moves next** and what risk remains in an exotic hedge.” Calibrating them to today does not make them the mid on the screen.
+
+The demo on the right is **GARCH-style clustering vs constant σ**, so you can see storms bunch. **It is not a trading screen, and it does not imply Heston is what the screen uses.**
+
+> One line: **fitting today's smile ≠ forecasting tomorrow's smile.** Treating an SVI residual as alpha is the same class of error as treating a ChatGPT backtest Sharpe as real money.
+
+String the six: **constant vol misses clustering and the smile → GARCH forecasts realized vol → Dupire fits today's surface → Heston supplies dynamics → jumps patch fat tails → SVI/SABR is how many desks mark today.** The link from Black-Scholes (Stage 4.1) to exotics (Stage 9.4) is this division of labor, not “the screen = Heston.”
 `,
 
   demo: "vol-model",
@@ -115,6 +127,7 @@ Finally, **jumps** are like acknowledging "there will be instant upheavals like 
     "**\"The Heston model requires a smile curve stuffed in by hand.\"** — Quite the opposite, the smile is **endogenous**: let the variance be random (vol-of-vol holding up the two ends) and negatively correlated with the stock (ρ<0 tilting the curve down), and the market-observed skew **grows automatically**, with no hand-drawing. This is stochastic volatility's most fascinating feature (Stage 4.3).",
     "**\"Volatility clustering means volatility will keep rising forever.\"** — It won't. Clustering only says \"big volatility often follows big, calm often follows calm,\" but GARCH has built-in **mean reversion** (ω/long-run variance is the anchor): after a spike, volatility gradually falls back to the long-run level rather than rising monotonically.",
     "**\"With a stochastic volatility model, jumps no longer need separate consideration.\"** — Not enough. Continuous stochastic volatility still assumes the price is **continuous and doesn't jump**, can't draw a sufficiently steep **short-term skew**, and underestimates extreme fat tails. The **instant gaps** caused by earnings/flash crashes require an extra jump term (Merton/Bates) to capture, especially important for short-term, deep-OTM options (Stage 8.4).",
+    "**\"The mid on the screen is Heston.\"** — No. Many desks **mark today's smile with SVI/SABR**; Heston/local vol are **dynamics**. Fitting today ≠ forecasting tomorrow. The demo is clustering, not a trading screen.",
   ],
 
   quiz: [
@@ -161,6 +174,17 @@ Finally, **jumps** are like acknowledging "there will be instant upheavals like 
       ],
       answer: 1,
       explain: "Continuous models assume the price is smooth and doesn't jump, but earnings/flash crashes make the price **gap instantly**, creating **fat tails** and an especially **steep short-term skew** — which pure diffusion (even stochastic volatility) can't replicate. Jump-diffusion (Merton/Bates) patches this in, especially crucial for short-term, deep-OTM options (Stage 8.4).",
+    },
+    {
+      q: "On how a 2026 desk “marks” the smile, which is most accurate?",
+      options: [
+        "The screen mid is Heston, because the lesson demoed Heston",
+        "Many desks mark today's smile with SVI/SABR-style interpolation; Heston/local vol are more about dynamics. Fitting today ≠ forecasting tomorrow",
+        "GARCH directly prints mids for every strike",
+        "SVI lets you forecast tomorrow's IV",
+      ],
+      answer: 1,
+      explain: "**Marking** (SVI/SABR) interpolates today; **dynamics** (Heston/local/jumps) govern the next move. This lesson's demo is GARCH clustering, not a trading screen.",
     },
   ],
 

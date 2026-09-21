@@ -48,7 +48,7 @@ Almost every broker tiers accounts by risk into **option approval levels / tiers
 
 "Commission-free" has become a selling point in recent years, but options differ from stocks — **very rarely is it truly all free.** The costs you must tally up include at least:
 
-- **Per-contract commission**: typically **$0–0.65** per contract. Buy 10 contracts and go in and out once each, and a $0.65 rate is 0.65 × 10 × 2 = **$13.** High-frequency traders especially should mind this.
+- **Per-contract commission**: U.S. retail folklore often quotes **$0–0.65** per contract — a **typical range, not a 2026 survey**. Buy 10, in and out once, at $0.65 is 0.65 × 10 × 2 = **$13.** High-frequency traders especially should mind this; use your broker's live schedule.
 - **Exchange/regulatory fees**: small but real (a few cents per contract), adding up with multi-leg and high volume.
 - **Exercise/assignment fees**: a charge may apply when you're assigned or exercise actively (some free, some a few dollars each time).
 - **The hidden cost — spread and execution quality**: this is the big one. A platform that routes your order to a worse pool with worse fills will give back the commission savings to **slippage** (Stage 10.6), and then some.
@@ -69,7 +69,7 @@ A full-featured platform (such as a professional terminal aimed at active trader
 
 ### ④ Tradable underlyings, expiries, and assignment/exercise handling
 
-- **Tradable underlyings and expiries**: does it cover the **individual stocks, ETFs, and indices** you want to trade? Are there **weeklys** or even **0DTE** (same-day expiry)? Index options (like SPX) are **European + cash-settled**, with no early-assignment headaches, and may differ tax-wise — this echoes callback 2.4 on American/European.
+- **Tradable underlyings and expiries (checklist)**: stocks, ETFs, **index (SPX/XSP)**, **0DTE**, **IBIT**? Index is European cash, and you still ask AM vs PM (Stages 2.4, 2.6, **2.7 product map**). Without index/0DTE/IBIT coverage, later strategy lessons stay theoretical.
 - **Assignment and exercise handling**: how does the broker handle your in-the-money options at expiry? Most have **auto-exercise**: in-the-money at expiry is usually auto-exercised (a common threshold is 0.01). You need to know the platform's rules, the **cutoff time**, and how to submit a "do-not-exercise" instruction — otherwise you may passively take delivery of unwanted stock at a borderline price (pin risk) (Stage 11.6 covers these traps specifically).
 - **Ability to take stock**: assigned on a cash-secured put, you must take 100 shares, and the account needs enough funds/margin or it triggers a margin call.
 

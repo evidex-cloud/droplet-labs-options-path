@@ -304,4 +304,90 @@ export const GLOSSARY = [
     zh: { terms: ["无风险利率", "risk-free rate"], def: "理论上无违约风险的收益率（常用短期国债）。它是给未来现金流贴现、以及 Black-Scholes 定价的关键输入。" },
     en: { terms: ["risk-free rate"], def: "The theoretical return with no default risk (often short-term government bills). It is used to discount future cash flows and is a key input to Black-Scholes." },
   },
+
+  {
+    zh: { terms: ["永续合约", "永续", "perp"], def: "没有交割日的线性互换：用保证金挂钩标的涨跌，靠资金费而不是到期来锚定现货。不是期权，也不是 CME 那种到期期货。" },
+    en: { terms: ["perpetual futures", "perpetual", "perp"], def: "A linear swap with no delivery date: margin tracks the underlying, anchored by funding rather than expiry. Not an option, and not a CME-style dated future." },
+  },
+  {
+    zh: { terms: ["资金费率", "资金费", "funding"], def: "永续多空之间定期结算的租金。正费率通常是多头付给空头。报出的百分比必须先按结算间隔（8h vs 1h）归一化，不能直接当年化收益。" },
+    en: { terms: ["funding rate"], def: "The periodic rent between perp longs and shorts. Positive funding usually means longs pay shorts. Quoted percents are not comparable until you normalize 8h vs 1h, and are not locked yield." },
+  },
+  {
+    zh: { terms: ["标记价格", "标记价", "mark"], def: "交易所用来计算未实现盈亏和是否强平的官方价，通常由指数价加平滑基差构成。它不等于最新成交价。" },
+    en: { terms: ["mark price"], def: "The venue’s official price for unrealized P&L and liquidation, usually index plus a smoothed basis. It is not the last trade." },
+  },
+  {
+    zh: { terms: ["指数价格", "指数价"], def: "若干现货交易所价格合成的篮子，用来锚定永续。成分所或预言机出问题，标记价也会被带偏。" },
+    en: { terms: ["index price"], def: "A basket of spot-venue prices used to anchor the perp. A bad constituent or oracle poisons mark as well." },
+  },
+  {
+    zh: { terms: ["强平", "爆仓", "liquidation"], def: "仓位权益掉到维持保证金以下时，引擎按标记价强制平仓。永续是线性保证金产品，没有期权买方那种权利金地板。" },
+    en: { terms: ["liquidation", "liquidated"], def: "Forced close when equity falls through maintenance margin, usually on mark. A perp is a linear margin product — no option-buyer premium floor." },
+  },
+  {
+    zh: { terms: ["自动减仓", "ADL"], def: "保险基金填不满穿仓缺口时，按规则强制减掉反向盈利账户。打的不是已经破产的空账户，而是还在赚钱的对手方。" },
+    en: { terms: ["auto-deleveraging", "ADL"], def: "When the insurance fund cannot cover a bankruptcy hole, profitable opposite accounts are forcibly reduced. It does not “only hit the bankrupt account.”" },
+  },
+  {
+    zh: { terms: ["保险基金"], def: "交易所用来吸收穿仓缺口的缓冲池。它有限，耗尽后才会走到 ADL 或社会化分摊。教学里不要引用“此刻余额”。" },
+    en: { terms: ["insurance fund"], def: "A venue buffer that absorbs bankruptcy holes. It is finite; empty it and you reach ADL or socialized loss. Do not quote a live balance in this course." },
+  },
+  {
+    zh: { terms: ["逐仓", "isolated"], def: "把保证金圈死在这一笔永续仓位里，爆了通常不直接抽走账户里其他仓。仍可能留下穿仓缺口进入瀑布。" },
+    en: { terms: ["isolated margin"], def: "Margin fenced to one perp position so a bust usually does not drain other books. A hole can still enter the waterfall." },
+  },
+  {
+    zh: { terms: ["全仓", "cross"], def: "账户权益共享。一个方向的亏损可以抽走对冲仓和其他币的仓位——看起来更不容易爆，真正的代价是连带。" },
+    en: { terms: ["cross margin"], def: "Shared account equity. One losing book can drain hedges and other coins — harder to bust this ticket, easier to lose the account." },
+  },
+  {
+    zh: { terms: ["维持保证金", "MMR"], def: "仓位必须保住的最低权益比例。击穿就进入强平。它低于初始保证金，两者之间的带子才是生存空间。" },
+    en: { terms: ["maintenance margin", "MMR"], def: "The minimum equity ratio before liquidation. It sits below initial margin; the band between them is your air." },
+  },
+  {
+    zh: { terms: ["初始保证金"], def: "开仓时锁住的权益，粗算约等于 1/杠杆。它决定你能开多大，不决定你能撑多深。" },
+    en: { terms: ["initial margin"], def: "Equity locked to open a position, roughly 1/leverage. It sizes the open, not how far you can sink." },
+  },
+
+  {
+    zh: { terms: ["0DTE"], def: "当天到期的期权。2026 年中 SPX 成交的主体往往是 0DTE（例如 2026 年 7 月占 SPX 期权成交 66.2%，Cboe 当月快照）。Gamma 按小时变陡，不是赌场口号。" },
+    en: { terms: ["0DTE"], def: "An option that expires the same day. By mid-2026 it is often the bulk of SPX volume (e.g. 66.2% in July 2026, a Cboe monthly snapshot). Gamma steepens by the hour — not a casino slogan." },
+  },
+  {
+    zh: { terms: ["上午结算", "AM settlement", "SOQ"], def: "用开盘特价（如 SPX 月度的 SOQ）作为结算价。你若按周五收盘对冲、合约却按上午印结算，对冲点会对不上。" },
+    en: { terms: ["AM settlement", "SOQ"], def: "Settlement off a special opening print (e.g. monthly SPX SOQ). If you hedged Friday’s close and the contract uses the morning print, the hedge point misses." },
+  },
+  {
+    zh: { terms: ["下午结算", "PM settlement"], def: "用常规交易时段的收盘相关印作成交/结算价。SPX 周期权与 0DTE 通常是 PM，和月度 AM/SOQ 不是同一个印。" },
+    en: { terms: ["PM settlement"], def: "Settlement off a regular-session close-related print. SPX weeklies and 0DTE are typically PM — not the same print as monthly AM/SOQ." },
+  },
+  {
+    zh: { terms: ["IBIT"], def: "一只现货比特币 ETF。IBIT 期权的标的是基金份额，不是比特币本身，也不等于 Deribit 币期权或 BTC 永续。不要冻结 AUM。" },
+    en: { terms: ["IBIT"], def: "A spot-bitcoin ETF. IBIT options are on fund shares, not bitcoin itself, and not Deribit coin options or a BTC perp. Do not freeze AUM." },
+  },
+  {
+    zh: { terms: ["Deribit"], def: "加密期权场所。Coinbase 于 2025 年 8 月 14 日完成收购；CIE 机构盘计划 2026 年 9 月 9 日迁入。常为币本位或 USD 保证金，不是 OCC 的 ×100 美股规则。" },
+    en: { terms: ["Deribit"], def: "A crypto-options venue. Coinbase closed the acquisition on 14 Aug 2025; CIE’s institutional book is scheduled onto Deribit on 9 Sep 2026. Often coin- or USD-margined — not OCC ×100 equity rules." },
+  },
+  {
+    zh: { terms: ["OCC"], def: "Options Clearing Corporation，美国上市期权的清算所。它定指派抽签、到期自动行权阈值、公司行动调整；张数统计也从这里出。" },
+    en: { terms: ["OCC"], def: "The Options Clearing Corporation, clearer for U.S. listed options. It runs assignment, exercise-by-exception, corporate-action adjustments — and the official contract-count tape." },
+  },
+  {
+    zh: { terms: ["SVI"], def: "一种把今天整条微笑插值/参数化的标记工具。它拟合当前曲面，不等于预测明天的曲面；和 Heston 那种动力学模型不是同一份工作。" },
+    en: { terms: ["SVI"], def: "A parameterization used to interpolate/mark today’s smile. Fitting the current surface is not forecasting tomorrow’s; it is not the same job as a Heston-style dynamics model." },
+  },
+  {
+    zh: { terms: ["SABR"], def: "另一套常用的微笑插值/标记参数（尤其利率与宽商品微笑）。和 SVI 一样，先服务“今天怎么标”，不自动等于“明天怎么走”。" },
+    en: { terms: ["SABR"], def: "Another common smile parameterization for marking (especially rates and wide commodity smiles). Like SVI, it serves “how we mark today,” not automatically “how it moves tomorrow.”" },
+  },
+  {
+    zh: { terms: ["VIX1D"], def: "Cboe 的短端波动率指数，跟踪极短期限的预期波动。本课只承认它存在，不编造成交量或实时读数。" },
+    en: { terms: ["VIX1D"], def: "Cboe’s short-dated volatility index for very near-term expected vol. This course notes that it exists; it does not invent its volume or a live print." },
+  },
+  {
+    zh: { terms: ["XSP"], def: "迷你 SPX 期权：欧式、现金交割，名义大约是 SPX 的十分之一。2026 年 7 月 Cboe 披露月度 ADV 创纪录 238k（其中 0DTE ADV 138k），是当月快照。" },
+    en: { terms: ["XSP"], def: "Mini-SPX options: European, cash-settled, notionally about one-tenth of SPX. Cboe’s July 2026 monthly ADV record was 238k (0DTE ADV 138k) — a monthly snapshot." },
+  },
 ];

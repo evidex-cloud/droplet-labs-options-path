@@ -96,7 +96,7 @@ The iron condor is one of the few strategies where "**management > entry**" — 
   - **Roll the unthreatened side**: move the other (still-safe) spread closer toward the price, collecting extra premium to subsidize the threatened side's loss — effectively shifting the whole range to chase the price.
   - **Roll the whole thing to the next expiry**: if you still like the range but are short on time, shift the entire iron condor to a more distant month and collect more time value.
   - **Cut and close**: if the move clearly breaks out of the range and a trend sets in, stop out at your predetermined max loss (e.g. 1.5~2× the premium collected) and leave — don't let a "high win rate" mindset drag one big loss into a disaster.
-- **Pin risk**: if at expiry the underlying lands right near a sold strike, whether you're assigned becomes hard to predict (Stage 1.3 covers assignment). Proactively closing the leg that's near the money as expiry nears avoids the uncertainty of expiry night.
+- **Pin risk**: if at expiry the underlying lands right near a sold strike, whether you're assigned becomes hard to predict (Stage 2.4 covers assignment). Proactively closing the leg that's near the money as expiry nears avoids the uncertainty of expiry night.
 
 > The seller's core mindset: an iron condor **wins often, wins little each time**, so you **must never let any single loss get out of control** — one unchecked big loss can swallow a dozen small wins. A high win rate doesn't mean a high expectation; sizing and stop discipline (Stage 8.1) are the watershed for whether it makes money long term.
 

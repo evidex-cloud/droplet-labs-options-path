@@ -2,15 +2,15 @@
 // 内容在 content/ 下；中文正文 stageX-id.js，英文正文 content/lessons/en/ 同名文件（缺失则回退中文）。
 // UI 文案用 t(中,英)。难度 1/2/3 与 persona 标签在 manifest 里。与 Satoshi Path 同一套渲染内核。
 
-import { COURSE } from "./content/manifest.js?v=7"; // 改了 manifest 要随 app.js?v 一起 bump，破缓存
-import { GLOSSARY } from "./content/glossary.js?v=1"; // 术语小卡片词库；改了它就 +1（并 bump app.js?v）
+import { COURSE } from "./content/manifest.js?v=9"; // 改了 manifest 要随 app.js?v 一起 bump，破缓存
+import { GLOSSARY } from "./content/glossary.js?v=3"; // 术语小卡片词库；改了它就 +1（并 bump app.js?v）
 
 // 品牌 Logo —— Droplet Labs 水滴 + 内部"看涨期权损益曲线"（钩形 hockey-stick），内联 SVG
 const LOGO = `<svg class="hd-logo-svg" viewBox="0 0 100 118" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Droplet Labs"><defs><linearGradient id="dropGrad" x1="22" y1="12" x2="80" y2="104" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0a6e63"/><stop offset=".55" stop-color="#0d9488"/><stop offset="1" stop-color="#4fc3b3"/></linearGradient></defs><path d="M50 10C31 39 18 55 18 74c0 19 15 31 32 31s32-12 32-31C82 55 69 39 50 10Z" stroke="url(#dropGrad)" stroke-width="3.4" stroke-linejoin="round"/><path d="M35 86 H71 M41 92 V52" stroke="url(#dropGrad)" stroke-width="1.4" opacity=".5" stroke-linecap="round"/><path d="M37 80 H53 L70 50" stroke="url(#dropGrad)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="53" cy="80" r="2.7" fill="url(#dropGrad)"/></svg>`;
 
 const app = document.getElementById("app");
 const PKEY = "options-path-v1";
-const V = "13"; // 内容版本：改了 lessons/ 或 demos/ 后 +1，破除浏览器对动态 import 的缓存
+const V = "15"; // 内容版本：改了 lessons/ 或 demos/ 后 +1，破除浏览器对动态 import 的缓存
 
 /* ---------------- 状态 ---------------- */
 function loadState() {

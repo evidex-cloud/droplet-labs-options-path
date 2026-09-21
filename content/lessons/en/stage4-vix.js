@@ -14,11 +14,11 @@ The last three lessons (Stage 4.2 / 4.3 / 4.4) dealt with the implied volatility
 
 The VIX in one sentence: **it is the market's expectation of the annualized volatility of the S&P 500 (SPX) over the next 30 days, in percent.** VIX=20 means "the market expects SPX volatility over the next 30 days to be about 20% on an annualized basis." Note three key words: **next 30 days** (not the past, but an expectation, so it's a kind of implied volatility), **the S&P 500** (representing the whole U.S. large-cap market), and **annualized** (the same basis as the IV from before).
 
-Its most fascinating property is being **inverse to the stock market.** A glance at history makes it obvious:
+Its most fascinating property is being **inverse to the stock market.** The ranges below are **historical, not a live August 2026 tape**:
 
-- In a calm bull market, the VIX sits at a low **12–16** for years.
-- In an ordinary pullback, the VIX rises to **20–30.**
-- In a true crisis the VIX **explodes**: the 2008 financial crisis drove it above **80**, and the March 2020 COVID crash also broke **80.**
+- In a calm bull market, the VIX has historically often sat at a low **12–16**.
+- In an ordinary pullback, the VIX has historically often printed **20–30.**
+- In a true crisis the VIX **explodes**: 2008 drove it above **80**, and March 2020 also broke **80** — **historical peaks.**
 
 Why inverse? Because when SPX plunges, panicked investors frantically snap up **put options** for protection (Stage 6.4), driving the implied volatility of these SPX puts (especially the low-strike puts lifted by skew, Stage 4.3) sky-high — and the VIX is synthesized precisely from these SPX-option IVs. So **price plunges → put demand surges → IV spikes → VIX spikes.** One thread ties it all together, and the VIX becomes a real-time reading of fear.
 
@@ -43,7 +43,7 @@ The demo below gives you a slider: drag SPX's drop and watch the VIX leap in res
   mechanics: `
 ### ① What the VIX is: 30-day expected volatility
 
-The VIX is computed in real time by the CBOE, taking the two SPX-option expiries **closest to 30 days**, weighting and interpolating their IV, to get a standardized "30-day annualized expected volatility." Key points:
+The VIX is computed in real time by the CBOE, taking the two SPX-option expiries **closest to 30 days**, weighting and interpolating their IV, to get a standardized "30-day annualized expected volatility." There is also **VIX1D**, a short-dated vol index — **this course notes that it exists; it does not invent its volume or a live print.** Key points:
 
 - **It's implied volatility, not historical volatility** — it watches the market's expectation of the **future**, not the realized past (the distinction from Stage 4.2 is crucial here).
 - **The underlying is SPX** (S&P 500 index options, European, cash-settled, Stage 2.4), representing the whole U.S. large-cap market.

@@ -7,7 +7,7 @@ export default {
   prereqs: ["llm-agents"],
 
   oneLiner:
-    "String research, coding, backtesting, and execution into one modern pipeline: **data ingestion → LLM research/screening → AI-assisted code (pricing/backtest) → human review → paper trading → small live trades → monitoring/journaling**. The core principle: **AI accelerates, you adjudicate** — every node that touches real money or draws a conclusion has a gate you guard personally.",
+    "String research, coding, backtesting, and execution into one modern pipeline. In 2026 LLM **research/coding is normal**, not alpha. Core principle: **AI accelerates, you adjudicate**; **do not auto-send 0DTE**; on the live path **TCA is still the bottleneck**.",
 
   intuition: `
 You now hold all the parts: you can price options in Python (Stage 11.3), build a backtest (Stage 11.4), and use LLMs and agents (Stage 10.5). This lesson assembles them into **a workflow one person can run end to end** — and that is the biggest change of the AI era for the retail quant: **what used to take a small team weeks, one person with AI can now cover across the whole chain in days.**
@@ -70,7 +70,7 @@ Run it live for a while on a **simulated account** with real market data (Stage 
 
 Start with **real money at the smallest size**. AI can assist with order entry and monitoring, but one rule is iron:
 
-- **Your gate (🔴 real-money gate)**: **the action that triggers real funds is explicitly authorized by you, and that authority is never outsourced.** The co-pilot (AI) can do the vast majority of the operations, but the captain (you) must personally confirm "gear down." Pair it with real-time **risk controls and stops**, and start from a reversible small position (Stage 8.1).
+- **Your gate (🔴 real-money gate)**: **the action that triggers real funds is explicitly authorized by you, and that authority is never outsourced.** **Do not auto-send 0DTE** (Stage 2.6). Research and coding can be 2026-ordinary; lowering the gear is still the captain. Pair live risk controls and start small (Stage 8.1). A pretty paper tape can still die in the spread: **TCA (Stage 10.6) remains the bottleneck**. There is no ChatGPT-alpha.
 
 ### ⑦ Monitoring and a trade journal (collaborative)
 
@@ -107,7 +107,7 @@ In one line: **autopilot (AI) handles the vast majority of operations quickly an
     "**\"The research conclusions and data the LLM gives me can be used directly.\"** — No. LLMs **hallucinate**: fabricating papers, misremembering numbers (Stage 10.5). Its output is \"a lead to be verified\" and must be **cross-checked** against primary sources — never treated as the evidence itself.",
     "**\"If the AI-written code runs, the logic is correct.\"** — \"It runs\" ≠ \"it's correct.\" You must **read it line by line** and **reconcile against a known answer**: have its BS function price the classic benchmark to ≈ 10.45 (Stage 11.3), and write that assert into the code as an automatic acceptance test, or you may ship a bug.",
     "**\"If the backtest looks good, I can go straight to small live trades.\"** — You can't skip the gates in between. After the backtest comes **human review** (check look-ahead/costs/overfitting), then **paper trading** to verify real execution (wide spreads and slippage often expose the cracks), and only after passing those is real money allowed (Stage 11.4, Stage 10.6).",
-    "**\"In automated trading, letting AI place real orders directly is the most efficient.\"** — The iron rule is that **the action triggering real funds is explicitly authorized by you**. AI can assist with order entry and monitoring, but \"pushing the throttle\" must be your own hand, paired with real-time risk controls and starting from the smallest reversible position (Stage 8.1). That authority is never outsourced.",
+    "**\"In automated trading, letting AI place real orders directly is the most efficient.\"** — Real money is **explicitly authorized by you**. Research/coding can be 2026-normal; **do not auto-send 0DTE**. TCA is still the bottleneck. There is no ChatGPT-alpha.",
   ],
 
   quiz: [
