@@ -1,98 +1,65 @@
 # Droplet Labs · 期权之路 · Options Path
 
-> 🔗 **在线体验**：<https://evidex-cloud.github.io/droplet-labs-options-path/>
+> 🔗 **在线体验 / Live**：<https://evidex-cloud.github.io/droplet-labs-options-path/>
 
-> **2026 年 9 月修订版**：新增独立的永续合约阶段 12 与两节 2026 补课（详见下方「2026 修订说明」）。
+一门**中英双语、从零到专家**的期权课程：期权在做什么、为什么值这个价、怎样用它们表达观点和管理风险——以及 0DTE、加密期权、永续合约与 AI 的今天。
+A bilingual (Chinese / English) options course from zero to expert: what options do, why they cost what they cost, how to express a view and manage the risk — and today's world of 0DTE, crypto options, perpetuals and AI.
 
-一个**本地优先、中文为主（双语框架）**的期权学习工具：把期权从零到专家拆成一条主线，并另开一条永续模块，让任何零基础的人都能一步步走到「看懂希腊字母、设计组合策略、用 Python 定价回测、在 AI 时代自动化执行」，以及「分清 perp / 到期期货 / 期权」。
+> ⚠️ **仅供教育，不构成投资建议。** 期权与永续都是高风险工具。所有数字与演示均为教学用途；当前市场数据带日期与来源。
+> Education only — nothing here is investment advice.
 
-与姊妹项目 [聪之路 · Satoshi Path](https://github.com/evidex-cloud/nextdawn-satoshi-path) **同一套渲染内核与设计语言**，灵感同源（aipath 的「路线 → 阶段 → 例子 → 选择」体验）。
+## v3 · 2026 年 9 月全面重写 / Full renewal (September 2026)
 
-> ⚠️ **仅供教育，不构成投资建议。** 期权与永续都是高风险工具：期权买方可能损失全部权利金、卖方风险甚至无限；永续有资金费、强平与 ADL。所有数字与演示均为教学简化。成交/OI 快照必须带 as-of 日期与来源；CoinGlass 等聚合器按**二手**标注。
+v3 是一次从头到尾的重写，不是修订：
 
-## 特性
+- **17 个阶段、99 节课，五个层级**：入门（看懂期权）→ 原理（定价、波动率与希腊字母）→ 策略（策略与风险管理）→ 市场（市场结构、期货与永续）→ 精通（量化、AI 与实战）。每个阶段以“它回答什么问题”开头。
+- **一条主线，四个观念**：① 形状（凸性）② 无套利（复制）③ 波动率 ④ 风险（希腊字母与杠杆）。每节课开头的“我们走到哪了”说明它落在哪个观念上、接着哪一课；结尾的“下一课”说明为什么要往下走。
+- **贯穿全课的例子**：小凯（Kai）持有 100 股虚构股票 XYZ（100 美元、隐含波动率 20%、利率 4%），全课的标准数字都由同一个经过测试的引擎算出，前后一致。
+- **真正的公式**：所有公式用 KaTeX 排版（本地 vendored，离线可用），每个公式后面都有逐项说明和代入真实数字的算例。
+- **可视化与交互**：226 张手绘 SVG 图示、207 个交互演示——每节课都有图示、一个主演示和 1–2 个嵌在正文里的小演示；演示全部在浏览器里真算（Black-Scholes 与全部希腊字母、隐含波动率、二叉树、蒙特卡洛、有限差分、Heston/SABR/SVI、VIX 式方差、对冲模拟、资金费与强平……）。
+- **新增的前沿与缺失主题**：价格边界、远期与箱式价差、随机游走与 √T、期权价格里的概率分布（Breeden–Litzenberger）、事件波动率与曲面、二阶希腊、离散度与系统化波动率策略、期权数据管线、波动率预测（GARCH/HAR/ML）、交易成本分析、粗糙波动率与无套利曲面、深度对冲、神经网络定价、强化学习做市、LLM 信号、带护栏的 AI 智能体、基差交易、毕业项目。
+- **界面**：采用 Droplet Labs 品牌设计语言（与新金融之路一致）：纸色背景、Outfit 字体、黑色悬浮导航、三栏课程页（目录抽屉 / 正文 / 本页目录）、术语悬浮卡、手机适配。
 
-- **一条主线，13 个阶段、79 节课**（原 12 阶段 69 课 + 独立永续 8 课 + 2026 补课 2 节：0DTE 与产品地图），分 4 个深度层（入门 → 原理 → 策略系统 → 精通）。阶段 12 挂在策略系统层，可从阶段 0.4 直接进入。
-- **真能算的演示**：每节配一个浏览器内交互演示，很多是**真算**——真实 Black-Scholes 定价、实时希腊字母曲线、蒙特卡洛模拟、可拖动的损益图、资金费与强平价计算、瀑布示意。
-- **固定模板，认知负担最小**：直觉 → 深入原理（可折叠）→ 演示 → 类比 → 常见误解 → 自测 → 延伸阅读。
-- **量化 × AI 贯穿全程**：从风险中性定价、波动率建模，到深度对冲、强化学习做市、用 LLM/智能体研究编码执行策略、算法执行与 TCA。
-- **知识卡片与交叉引用**：术语自动加悬浮释义小卡片；正文里「阶段 X.Y」自动变成跳转链接。
-- **难度评级与学习目标**：每节标 ★ 基础 / ★★ 进阶 / ★★★ 高级；选新手 / 交易者 / 对冲者 / 量化后，相关课高亮、无关课弱化。
-- **本地优先**：进度只存在你自己浏览器的 `localStorage`，纯本地、不上传。
-- **完整中英双语**：右上角随时切换 EN / 中文，**全部 79 节中、英文正文均已就绪**（英文在 `content/lessons/en/`）。
-- **纯静态、零依赖、无构建**：原生 HTML/CSS/JS（ES modules），没有后端、没有打包步骤。
-
-## 本地运行
-
-双击 **`launch.bat`**（需已装 Python），它会起本地服务器并打开 `http://localhost:8780/`。
-
-或手动：
+## 本地运行 / Run locally
 
 ```bash
 python -m http.server 8780
-# 然后浏览器打开 http://localhost:8780/
 ```
 
-> ⚠️ **请勿直接双击 `index.html`。** 课程内容与演示都是按需 `import` 的，需要一个本地服务器（`http://localhost`）。
+然后打开 <http://localhost:8780/>（Windows 可双击 `launch.bat`）。不要直接双击 `index.html`——课程内容按需加载，需要本地服务器。`?lang=en` / `?lang=zh` 可直接指定语言。
 
-## 发布到 GitHub Pages
-
-纯静态站点，全部用**相对路径**，对 GitHub Pages 安全。步骤：
-
-1. 推到一个 GitHub 仓库（如 `your-account/droplet-labs-options-path`）。
-2. 仓库 **Settings → Pages → Build and deployment**：Source 选 **Deploy from a branch**，分支选 **`main` / `(root)`**。
-3. 稍等片刻，站点上线于 `https://<account>.github.io/<repo>/`。
-
-> ⚠️ **`.nojekyll` 不能删。** 三个共享引擎 `demos/_payoff.js`、`_bs.js`、`_chart.js` 以**下划线开头**；GitHub Pages 默认的 Jekyll 会**忽略下划线开头的文件**，导致几乎所有演示加载失败。仓库根目录的空文件 **`.nojekyll`** 会关闭 Jekyll，确保它们被原样serve。本地运行不受影响。
-
-## 目录结构
+## 目录结构 / Layout
 
 ```
-options-path/
-├─ index.html                 外壳（引样式与 app.js，含全站页脚）
-├─ styles.css                 设计系统
-├─ app.js                     渲染器
-├─ launch.bat                 本地启动
-├─ AUTHORING.md               课程编写指南
-├─ content/
-│  ├─ manifest.js             课程地图（13 阶段）
-│  ├─ glossary.js             术语小卡片词库（中英 **96** 条；含 0DTE / IBIT / Deribit / SVI 等）
-│  └─ lessons/
-│     ├─ stage*-*.js          79 节中文课
-│     └─ en/                  79 节英文课
-└─ demos/
-   ├─ _payoff.js / _bs.js / _chart.js
-   └─ *.js                    79 个交互演示（默认导出 mount(root, lang)）
+index.html · app.js · styles.css · math.js     外壳、渲染器（Markdown + KaTeX）、设计系统、公式排版
+content/manifest.js                           课程地图（由 tools/curriculum.mjs 生成）
+content/glossary.js                           术语卡（由 tools/merge_glossary.mjs 生成）
+content/lessons/zh/<id>.md, en/<id>.md        99 节课 × 2 种语言（格式见 AUTHORING.md）
+demos/_opt.js                                 共享期权引擎（纯函数，已测试）
+demos/_viz.js                                 图表、损益图与控件
+demos/<id>.js, <id>-<suffix>.js               每节课的主演示与嵌入式演示
+vendor/katex/                                 KaTeX 0.16（本地）
+tools/                                        校验与生成工具
 ```
 
-**设计原则：内容与代码分离。** 加一节课的步骤见 **`AUTHORING.md`**。
+## 写课与校验 / Authoring & checks
 
-## 2026 修订说明
+写课前先读 **`AUTHORING.md`**（主线、贯穿例子与标准数字、Markdown 格式、公式与图示规范、演示 API、每节课的蓝图）。
 
-2026-09 依据 2026-08-31 的课程审计做了一轮修订：12 阶段 69 课 → **13 阶段 79 课**，演示 69 → **79 个**，术语卡片 60+ → **96 条**（新增 0DTE / IBIT / Deribit / SVI 等）。
+```bash
+node tools/test_opt.mjs          # 引擎自测（与 Hull/Haug 教材值、平价、收敛、有限差分希腊字母核对）
+node tools/check.mjs [ids…]      # 结构、链接、长度、图示、每个公式（KaTeX）、“$ 只表示钱”规则、演示契约
+node tools/smoke.mjs [demos…]    # 在无头 DOM 里挂载每个演示（中英双语）并点击所有控件（需要 linkedom）
+node tools/curriculum.mjs        # 由课程结构重新生成 content/manifest.js
+node tools/merge_glossary.mjs    # 合并 content/glossary-proposals/*.json 到术语表
+```
 
-**新增阶段 12 · 永续合约（8 课，独立模块）**
+改了课文或演示后，把 `app.js` 里的 `const V` 加 1；改了 `app.js`/`styles.css` 后把 `index.html` 里的 `?v=` 加 1。
 
-挂在「策略系统」层，不必先修阶段 9–11，学完阶段 0.4 即可进入：永续是什么 · 指数价/标记价/最新价 · 资金费率 · 保证金与强平 · 保险基金与 ADL · 2026 永续场所（CEX、Hyperliquid、CME）· 永续 vs 期权 · 永续陷阱。每课配一个真算演示：资金费成本、强平价、ADL 瀑布、标记价 vs 最新价、场所地图等。
+## 发布 / Publishing
 
-**阶段 2 追加 2 课（原 2.4 / 2.5 编号不变）**
-
-- **2.6 0DTE**：同一天到期的 SPX 期权已成为主要成交带，以及它对 gamma 与做市的影响。
-- **2.7 2026 产品地图**：SPY / SPX / XSP / IBIT / Deribit 各自的结算方式、税务与适用场景。
-
-**已有课程的主要更新**：行权与指派、VIX、gamma、组合希腊字母、铁鹰、做市商与 dealer 定位、对冲、尾部风险、交易心理、波动率模型、智能体与 AI 工作流、券商与陷阱等 16 节课按 2026-08 数据核对；演示 `trade-scenarios`、`vol-model` 同步修订。成交/OI 快照一律标注 as-of 日期与来源。
-
-## 路线图（13 阶段）
-
-| 层 | 阶段 |
-|---|---|
-| 入门 · 浅 | 0 为什么需要期权 · 1 期权基础概念 · 2 读懂与交易期权 |
-| 原理 | 3 期权定价的逻辑 · 4 Black-Scholes 与波动率 · 5 希腊字母 |
-| 策略系统 | 6 单腿与价差策略 · 7 组合与波动率策略 · 8 风险管理与做市视角 · **12 永续合约（独立）** |
-| 精通 · 深 | 9 量化期权 · 10 AI 时代的期权 · 11 动手与实战 |
-
-阶段 2 在原 2.5 之后追加 **2.6 0DTE**、**2.7 产品地图**（不改 2.4/2.5 编号）。阶段 12 课表不变：永续是什么 · 指数/标记/最新价 · 资金费 · 保证金与强平 · 保险基金与 ADL · 2026 场所 · 永续 vs 期权 · 陷阱。
+纯静态站点，全部相对路径；GitHub Pages 从 `main` 根目录直接部署。**`.nojekyll` 不能删**（`demos/_opt.js`、`_viz.js` 以下划线开头）。`_research/` 与 `content/glossary-proposals/` 不发布（见 `.gitignore`）。
 
 ---
 
-Developed by **Droplet Labs**
+Developed by **Droplet Labs** · <https://dropletlabs.xyz/>

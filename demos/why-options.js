@@ -1,118 +1,50 @@
-// 交互演示：为什么需要期权 —— 保险 / 杠杆 / 收租 三个动机
-// 分段切换三种场景，每种给出一个具体数字情景 + 一张到期损益图（共享引擎），
-// 并用 .stat-row 列出关键数字。标的统一现价 100。
-import { payoffSVG, payoffBlock } from "./_payoff.js";
+// Main demo for lesson why-options: the same bullish view three ways — $10,000 in 100 shares, one 30-day call
+// (premium from the engine), or the call's premium spent on shares — across XYZ moves from −20% to +20%.
+import * as O from "./_opt.js";
+import { lineChart, seg, onSeg, slider, bindSliders, stats, tex } from "./_viz.js";
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-  const MULT = 100;
-  const SPOT = 100;
-
-  // 三种场景的配置
-  const CASES = {
-    insure: {
-      label: T("保险", "Insurance"),
-      legs: [
-        { type: "stock", side: "long", entry: 100, qty: 1 },
-        { type: "put", side: "long", strike: 95, premium: 3, qty: 1 },
-      ],
-      lo: 60, hi: 140,
-      desc: T(
-        "持有 100 股（成本 100），再买 1 张行权价 95、保费 <b>3 元/股</b> 的看跌期权（一张 <b>300 元</b>）。这就是给股票上了一份“下跌险”。",
-        "Hold 100 shares (cost 100), plus 1 put at strike 95 costing <b>3/sh</b> (<b>$300</b> a contract). That is a downside insurance policy on the stock."
-      ),
-      stats: [
-        ["k", T("保费(每张)", "Premium /contract"), "−$300", "neg"],
-        ["k", T("最大亏损(组合)", "Max loss (combo)"), "−$800", "neg"],
-        ["k", T("跌到 70 时", "If S = 70"), "−$800", "neg"],
-      ],
-      note: T(
-        "看跌把“跌到 70”的 3000 元亏损，封顶到了 800 元 = (100−95 + 3)×100。涨了则保险作废，只损失 300 元保费，股票照样赚。",
-        "The put caps a 70-print loss from $3000 down to $800 = (100−95 + 3)×100. If it rises, the put lapses (−$300) and the stock still profits."
-      ),
-    },
-    leverage: {
-      label: T("杠杆", "Leverage"),
-      legs: [{ type: "call", side: "long", strike: 105, premium: 5, qty: 1 }],
-      lo: 70, hi: 140,
-      desc: T(
-        "看好上涨，但不想花 <b>10,000 元</b> 买 100 股。改花 <b>500 元</b> 买 1 张行权价 105、权利金 5 的看涨期权——用小钱博大涨。",
-        "Bullish, but you don't want to spend <b>$10,000</b> on 100 shares. Instead spend <b>$500</b> on 1 call at strike 105, premium 5 — a small stake on a big move."
-      ),
-      stats: [
-        ["k", T("买100股需", "100 shares cost"), "$10,000", ""],
-        ["k", T("买1张看涨", "1 call costs"), "$500", "acc"],
-        ["k", T("涨到130 (期权)", "S=130 (option)"), "+$2,000", "pos"],
-      ],
-      note: T(
-        "涨到 130：看涨每股 max(130−105,0)−5 = 20，一张赚 2000（+400%）；而 100 股只赚 3000（+30%）。看错最多亏 500 元，下行封死。",
-        "At 130: the call earns max(130−105,0)−5 = 20/sh → $2000 a contract (+400%); 100 shares earn only $3000 (+30%). Wrong? You lose $500 max — floor."
-      ),
-    },
-    income: {
-      label: T("收租", "Income"),
-      legs: [{ type: "put", side: "short", strike: 95, premium: 3, qty: 1 }],
-      lo: 60, hi: 140,
-      desc: T(
-        "换位当<b>卖方</b>。卖出 1 张行权价 95、权利金 3 的看跌，先把 <b>300 元</b> 权利金收进口袋（需备好保证金/接货现金）。",
-        "Flip to the <b>seller</b> side. Sell 1 put at strike 95, premium 3, collecting <b>$300</b> up front (margin / cash to take assignment required)."
-      ),
-      stats: [
-        ["k", T("先收权利金", "Premium collected"), "+$300", "pos"],
-        ["k", T("最大盈利", "Max gain"), "+$300", "pos"],
-        ["k", T("跌到88时", "If S = 88"), "−$400", "neg"],
-      ],
-      note: T(
-        "到期 S≥95：买方不行权，300 元全赚。跌破 95 就被指派、按 95 接货：跌到 88，每股亏 (95−88)−3 = 4，一张亏 400 元。收益封顶、风险敞开——这就是卖方。",
-        "If S≥95 at expiry, keep the full $300. Below 95 you're assigned at 95: at 88 you lose (95−88)−3 = 4/sh → $400. Capped gain, open risk — the seller's deal."
-      ),
-    },
-  };
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🎯 ${T("为什么需要期权 · 三个动机", "Why Options · Three Motives")}</div>
-      <div class="demo-seg" id="wo-seg">
-        <button data-k="insure" class="on">${T("① 保险", "① Insure")}</button>
-        <button data-k="leverage">${T("② 杠杆", "② Leverage")}</button>
-        <button data-k="income">${T("③ 收租", "③ Income")}</button>
-      </div>
-      <div class="scn" id="wo-scn" style="margin-top:12px"></div>
-      <div id="wo-chart" style="margin-top:12px"></div>
-      <div class="stat-row" id="wo-stats"></div>
-      <p class="demo-tip" id="wo-note"></p>
-    </div>`;
-
-  const $ = (id) => root.querySelector(id);
-  const seg = $("#wo-seg");
-
-  function render(key) {
-    const c = CASES[key];
-    $("#wo-scn").innerHTML = `<div class="scn-q">${c.desc}</div>`;
-
-    const res = payoffSVG({
-      legs: c.legs, lo: c.lo, hi: c.hi, spot: SPOT,
-      spotLabel: T("现价", "Spot"), uid: "wo-" + key,
-    });
-    $("#wo-chart").innerHTML = payoffBlock(res, [
-      ["var(--green-soft)", T("盈利", "Profit")],
-      ["var(--red-soft)", T("亏损", "Loss")],
+  const base = { S: 100, T: 30 / 365, r: 0.04, sigma: 0.2, type: "call" };
+  let K = 100;
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("同一个看涨观点，三种下注方式", "One bullish view, three ways to bet")}</div>
+    <div class="demo-row"><span class="demo-label">${T("看涨期权的行权价：", "Call strike: ")}</span>${seg("wo-k", [[95, "95"], [100, "100"], [105, "105"], [110, "110"]], K)}</div>
+    ${slider("wo-m", T("30 天后 XYZ 的涨跌", "XYZ's move over 30 days"), -20, 20, 1, 10)}
+    <div class="demo-math" id="wo-f"></div>
+    <div id="wo-stats"></div>
+    <div id="wo-chart"></div>
+    <p class="demo-tip">${T("试试：先看 +10%，再看 +2% 和 −5%。期权把小额资金放大成大比例收益，但只要涨得不够多（低于盈亏平衡价），整笔权利金就归零；换成更虚值的 105 或 110 行权价，放大倍数更高、归零的机会也更大。", "Try this: look at +10%, then +2% and −5%. The call turns a small stake into a large percentage return, but unless XYZ rises past the breakeven the whole premium is gone; the further-out 105 and 110 strikes multiply more and expire worthless more often.")}</p>
+  </div>`;
+  const $ = (s) => root.querySelector(s);
+  const usd = (x) => (x < 0 ? "−$" : x > 0 ? "+$" : "$") + Math.abs(x).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const pct = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x * 100).toFixed(0) + "%";
+  const draw = (v) => {
+    const m = v["wo-m"] / 100, ST = 100 * (1 + m);
+    const c = Math.round(O.bsPrice({ ...base, K }) * 100) / 100; // premium per share, rounded to cents
+    const budget = c * 100;
+    const rCall = (x) => (Math.max(x - K, 0) - c) / c, rStock = (x) => (x - 100) / 100;
+    const plCall = (Math.max(ST - K, 0) - c) * 100, plShares = (ST - 100) * 100, plSmall = (ST - 100) * (budget / 100);
+    const st = ST.toFixed(0);
+    $("#wo-f").innerHTML = tex(String.raw`R_{\text{${T("期权", "call")}}} = \frac{\max(S_T - K,\,0) - c}{c} = \frac{\max(${st} - ${K},\,0) - ${c.toFixed(2)}}{${c.toFixed(2)}} = ${(rCall(ST) * 100).toFixed(0)}\%`, true) + tex(String.raw`R_{\text{${T("股票", "stock")}}} = \frac{S_T - S_0}{S_0} = \frac{${st} - 100}{100} = ${(m * 100).toFixed(0)}\%`, true);
+    $("#wo-stats").innerHTML = stats([
+      [T(`100 股（投入 $10,000）`, `100 shares ($10,000 in)`), `${usd(plShares)} · ${pct(rStock(ST))}`, plShares >= 0 ? "pos" : "neg"],
+      [T(`1 张 ${K} 看涨（投入 $${budget.toFixed(0)}）`, `One ${K} call ($${budget.toFixed(0)} in)`), `${usd(plCall)} · ${pct(rCall(ST))}`, plCall >= 0 ? "pos" : "neg"],
+      [T(`同样 $${budget.toFixed(0)} 买股票`, `The same $${budget.toFixed(0)} in shares`), `${usd(plSmall)} · ${pct(rStock(ST))}`, plSmall >= 0 ? "pos" : "neg"],
+      [T("期权盈亏平衡价", "Call breakeven"), "$" + (K + c).toFixed(2), "acc"],
     ]);
-
-    $("#wo-stats").innerHTML = c.stats
-      .map(([, k, v, cls]) => `<div class="stat"><div class="k">${k}</div><div class="v ${cls}">${v}</div></div>`)
-      .join("");
-
-    $("#wo-note").innerHTML = c.note;
-  }
-
-  seg.addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-    seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
-    render(btn.dataset.k);
-  });
-
-  render("insure");
+    $("#wo-chart").innerHTML = lineChart({
+      xmin: -20, xmax: 20, xstep: 5, xfmt: (x) => (x > 0 ? "+" : "") + x + "%", yfmt: (y) => y + "%",
+      xlabel: T("30 天后 XYZ 的涨跌", "XYZ move over 30 days"), ylabel: T("收益率", "Return"),
+      series: [
+        { f: (x) => rCall(100 * (1 + x / 100)) * 100, cls: 3, label: T(`${K} 看涨期权`, `${K} call`) },
+        { f: (x) => x, cls: 5, label: T("股票（无论投入多少）", "Shares (any amount)") },
+      ],
+      markers: [{ x: m * 100, label: pct(m) }], hlines: [{ y: -100, label: T("−100%：权利金全部损失", "−100%: premium lost") }],
+      points: [{ x: m * 100, y: rCall(ST) * 100, cls: 3, label: pct(rCall(ST)) }],
+    });
+  };
+  const run = bindSliders(root, { "wo-m": (x) => (x > 0 ? "+" : "") + x + "%" }, draw);
+  onSeg(root, "wo-k", (k) => { K = +k; run(); });
 }

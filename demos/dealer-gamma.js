@@ -1,112 +1,134 @@
-// 交互演示：做市商 Gamma 如何撬动市场。
-// 分段切 [做市商多 Gamma / 做市商空 Gamma]；价格冲击滑块（−5%~+5%）。
-// 展示做市商的对冲响应（买/卖股票）如何 抑制（多 Gamma）或 放大（空 Gamma）这个冲击——
-// 一个简单的反馈示意：初始冲击 → 对冲流 → 最终落点（含箭头/数值）。绑到 Gamma 挤压。
-// 真算：用 ½·Γ·(ΔS)² 量级 + 反馈系数把“对冲量 → 二次价格推动”可视化。
+// Main demo for lesson dealer-gamma: a stylised XYZ options market. Choose who holds what, compare the "vendor GEX"
+// (open interest + the usual sign convention) with the dealers' true gamma, and simulate a month of prices in which
+// the dealers' hedging feeds back into the stock: ΔS = ε / (1 + G/D).
+import * as O from "./_opt.js";
+import { lineChart, seg, onSeg, slider, bindSliders, stats, tex } from "./_viz.js";
+
+// dealer net position per strike, in contracts (+ = dealers long). Illustrative, 30 days to expiry.
+const PRESETS = {
+  hedge: [ // customers sell calls (overwriting) and buy puts (protection): the textbook convention is right
+    { type: "call", K: 100, n: 20000 }, { type: "call", K: 105, n: 40000 }, { type: "call", K: 110, n: 30000 },
+    { type: "put", K: 100, n: -15000 }, { type: "put", K: 95, n: -40000 }, { type: "put", K: 90, n: -30000 },
+  ],
+  frenzy: [ // customers BUY upside calls: dealers are short them, but the convention still counts calls as dealer-long
+    { type: "call", K: 105, n: -40000 }, { type: "call", K: 110, n: -50000 }, { type: "call", K: 100, n: -10000 },
+    { type: "put", K: 95, n: -20000 }, { type: "put", K: 90, n: -10000 },
+  ],
+  income: [ // customers sell both calls and puts (income funds, put-writers): dealers long gamma everywhere
+    { type: "call", K: 100, n: 30000 }, { type: "call", K: 105, n: 40000 },
+    { type: "put", K: 100, n: 20000 }, { type: "put", K: 95, n: 30000 },
+  ],
+};
+const r = 0.04, SIG = 0.2, DAYS0 = 30, STEPS_PER_DAY = 4, NSTEP = DAYS0 * STEPS_PER_DAY;
+
+// gamma in shares per $1 of the dealers' book: true (their actual positions) and vendor (OI with calls +, puts −)
+function bookGamma(pos, S, days, vendor) {
+  if (days <= 0) return 0;
+  let g = 0;
+  for (const p of pos) {
+    const gm = O.greeks({ S, K: p.K, T: days / 365, r, sigma: SIG, type: p.type }).gamma;
+    const n = vendor ? (p.type === "call" ? 1 : -1) * Math.abs(p.n) : p.n;
+    g += n * 100 * gm;
+  }
+  return g;
+}
+function flip(pos, days, vendor) {
+  // scan from 80 to 120 for the sign change closest to 100
+  let best = null, prev = bookGamma(pos, 80, days, vendor);
+  for (let S = 80.5; S <= 120; S += 0.5) {
+    const g = bookGamma(pos, S, days, vendor);
+    if ((prev < 0 && g >= 0) || (prev > 0 && g <= 0)) {
+      let lo = S - 0.5, hi = S;
+      for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; const gm = bookGamma(pos, m, days, vendor); if ((gm >= 0) === (g >= 0)) hi = m; else lo = m; }
+      const x = (lo + hi) / 2;
+      if (best == null || Math.abs(x - 100) < Math.abs(best - 100)) best = x;
+    }
+    prev = g;
+  }
+  return best;
+}
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-
-  // 做市商总 Gamma 敞口（GEX）的抽象量级：每 1% 价格变动需对冲的股票名义额（百万美元/%）。
-  const GEX = 50; // |对冲量| ≈ GEX × |ΔS%|（百万美元），示意规模
-  const FEEDBACK = 0.6; // 对冲流回推价格的传导系数（示意）
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🔁 ${T("做市商 Gamma：减震器还是放大器？", "Dealer Gamma: shock absorber or amplifier?")}</div>
-
-      <div class="demo-row">
-        <div class="demo-seg" id="dg-pos">
-          <button data-g="long" class="on">${T("做市商多 Gamma", "Dealer LONG Gamma")}</button>
-          <button data-g="short">${T("做市商空 Gamma", "Dealer SHORT Gamma")}</button>
-        </div>
-      </div>
-
-      <div class="demo-block">
-        <label class="demo-label">${T("初始价格冲击", "Initial price shock")} = <b id="dg-shock-v">+2.0</b>%</label>
-        <input class="demo-slider" id="dg-shock" type="range" min="-5" max="5" step="0.5" value="2"/>
-      </div>
-
-      <div id="dg-flow" class="detail" style="margin-top:6px"></div>
-
-      <div class="stat-row" style="margin-top:14px">
-        <div class="stat"><div class="k">${T("初始冲击", "Initial shock")}</div><div class="v" id="dg-init">–</div></div>
-        <div class="stat"><div class="k">${T("做市商对冲", "Dealer hedge")}</div><div class="v acc" id="dg-hedge">–</div></div>
-        <div class="stat"><div class="k">${T("最终价格变动", "Final move")}</div><div class="v" id="dg-final">–</div></div>
-        <div class="stat"><div class="k">${T("放大/抑制", "Amplify/Damp")}</div><div class="v" id="dg-ratio">–</div></div>
-      </div>
-
-      <p class="demo-tip" id="dg-tip"></p>
-    </div>`;
-
+  let preset = "hedge", seed = 7;
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("做市商 Gamma 实验室：GEX 估计 vs 真实持仓，以及它对价格路径的影响", "Dealer-gamma lab: estimated GEX vs true positions, and what they do to the price path")}</div>
+    <div class="demo-row">${seg("dg-p", [["hedge", T("客户卖看涨、买看跌", "Customers sell calls, buy puts")], ["frenzy", T("客户疯买看涨", "Call-buying frenzy")], ["income", T("客户卖出一切（收益型）", "Customers sell everything (income)")]], preset)}</div>
+    <div id="dg-table"></div>
+    <div class="demo-grid">
+      ${slider("dg-d", T("市场深度 D（推动 1 美元需要的股数，百万）", "Market depth D (shares to move XYZ $1, millions)"), 0.5, 6, 0.5, 2)}
+      ${slider("dg-s", T("看 GEX 的现价 S", "Spot for the GEX reading S"), 85, 115, 0.5, 100)}
+    </div>
+    <div class="demo-math" id="dg-f"></div>
+    <div id="dg-stats"></div>
+    <div id="dg-curve"></div>
+    <div class="demo-btns"><button type="button" class="demo-btn" data-act="seed">${T("换一组随机冲击", "New random shocks")}</button></div>
+    <div id="dg-path"></div>
+    <div id="dg-stats2"></div>
+    <p class="demo-tip">${T("试试：在“客户疯买看涨”里，供应商式 GEX 显示为正（看似稳定），真实 Gamma 却为负——路径被放大。把深度 D 调小，反馈更强；到期前几天，价格在大持仓行权价附近的行为最明显。", "Try this: under “Call-buying frenzy” the vendor-style GEX reads positive (looks calm) while the true gamma is negative, and the path gets amplified. Shrink the depth D to strengthen the feedback; the effect is strongest near large strikes in the last few days.")}</p>
+  </div>`;
   const $ = (s) => root.querySelector(s);
-  let pos = "long";
-
-  function paint() {
-    const shock = +$("#dg-shock").value;     // 初始冲击 %
-    $("#dg-shock-v").textContent = (shock >= 0 ? "+" : "") + shock.toFixed(1);
-
-    // 做市商对冲量（百万美元）：随价格涨需要的方向。
-    // 多 Gamma：价涨→卖股(−)，价跌→买股(+)，逆势 → 抑制。
-    // 空 Gamma：价涨→买股(+)，价跌→卖股(−)，顺势 → 放大。
-    const sign = pos === "long" ? -1 : +1;          // 对冲交易方向相对价格冲击
-    const hedgeNotional = sign * GEX * shock;        // 正=买股、负=卖股（百万美元）
-    // 对冲流回推价格：买股推涨、卖股推跌
-    const secondaryMove = (hedgeNotional / GEX) * FEEDBACK; // 归一化回价格 %
-    const finalMove = shock + secondaryMove;
-    const ratio = shock !== 0 ? finalMove / shock : 1;
-
-    const buying = hedgeNotional > 0;
-    const arrow = (v) => (v > 0 ? "▲" : v < 0 ? "▼" : "•");
-    const col = (v) => (v > 0 ? "var(--green)" : v < 0 ? "var(--red)" : "var(--muted)");
-
-    // 反馈链示意
-    $("#dg-flow").innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;line-height:1.5">
-        <span><span class="dk">${T("①初始冲击", "① Shock")}</span><br><b style="color:${col(shock)}">${arrow(shock)} ${(shock >= 0 ? "+" : "") + shock.toFixed(1)}%</b></span>
-        <span style="color:var(--muted);font-size:18px">→</span>
-        <span><span class="dk">${T("②做市商对冲", "② Dealer hedges")}</span><br><b style="color:var(--accent-ink)">${buying ? T("买入", "BUY") : T("卖出", "SELL")} ${T("约", "~")}$${Math.abs(hedgeNotional).toFixed(0)}M ${T("股票", "stock")}</b></span>
-        <span style="color:var(--muted);font-size:18px">→</span>
-        <span><span class="dk">${T("③二次推动", "③ Pushes price")}</span><br><b style="color:${col(secondaryMove)}">${arrow(secondaryMove)} ${(secondaryMove >= 0 ? "+" : "") + secondaryMove.toFixed(1)}%</b></span>
-        <span style="color:var(--muted);font-size:18px">→</span>
-        <span><span class="dk">${T("④最终", "④ Final")}</span><br><b style="color:${col(finalMove)}">${arrow(finalMove)} ${(finalMove >= 0 ? "+" : "") + finalMove.toFixed(1)}%</b></span>
-      </div>`;
-
-    $("#dg-init").textContent = (shock >= 0 ? "+" : "") + shock.toFixed(1) + "%";
-    $("#dg-init").className = "v";
-    $("#dg-hedge").textContent = (buying ? "+" : "−") + "$" + Math.abs(hedgeNotional).toFixed(0) + "M";
-    $("#dg-final").textContent = (finalMove >= 0 ? "+" : "") + finalMove.toFixed(1) + "%";
-    $("#dg-final").className = "v " + (finalMove > 0 ? "pos" : finalMove < 0 ? "neg" : "");
-    $("#dg-ratio").textContent = Math.abs(ratio).toFixed(2) + "×";
-    $("#dg-ratio").className = "v " + (pos === "long" ? "acc" : "neg");
-
-    let msg;
-    if (shock === 0) {
-      msg = T(
-        `先把<b>价格冲击</b>拖离 0，再对比两种做市商 Gamma 头寸下，市场被<b>抑制</b>还是被<b>放大</b>。`,
-        `Move the <b>price shock</b> off 0, then compare how the market is <b>damped</b> vs <b>amplified</b> under the two dealer Gamma positions.`
-      );
-    } else if (pos === "long") {
-      msg = T(
-        `<b>做市商多 Gamma = 减震器</b>。初始 ${(shock >= 0 ? "+" : "") + shock.toFixed(1)}% 的冲击，迫使做市商<b>${buying ? "买入" : "卖出"}</b>股票做<b>逆势</b>对冲（涨了卖、跌了买），把价格往回拉，最终只剩 <b>${(finalMove >= 0 ? "+" : "") + finalMove.toFixed(1)}%</b>（${Math.abs(ratio).toFixed(2)}× 原冲击）。结果：<b>波动被压制、市场倾向均值回归</b>，临近到期还会把价格“钉”在大行权价附近（阶段 8.5）。`,
-        `<b>Dealer long Gamma = shock absorber</b>. The initial ${(shock >= 0 ? "+" : "") + shock.toFixed(1)}% shock forces dealers to <b>${buying ? "buy" : "sell"}</b> stock as a <b>counter-trend</b> hedge (sell rallies, buy dips), pulling price back to just <b>${(finalMove >= 0 ? "+" : "") + finalMove.toFixed(1)}%</b> (${Math.abs(ratio).toFixed(2)}× the shock). Result: <b>volatility is suppressed, the market mean-reverts</b>, and price pins near big strikes into expiry (Stage 8.5).`
-      );
-    } else {
-      msg = T(
-        `<b>做市商空 Gamma = 放大器</b>。初始 ${(shock >= 0 ? "+" : "") + shock.toFixed(1)}% 的冲击，迫使做市商<b>${buying ? "追买" : "割卖"}</b>股票做<b>顺势</b>对冲（涨了买、跌了卖），把价格推得更远，放大到 <b>${(finalMove >= 0 ? "+" : "") + finalMove.toFixed(1)}%</b>（${Math.abs(ratio).toFixed(2)}× 原冲击）。结果：<b>波动被放大、趋势自我强化</b>——下跌方向就是<b>加速崩盘</b>，上涨方向就是 <b>Gamma 挤压</b>（2021 meme 股，散户疯买看涨逼做市商不断追买）（阶段 8.5）。`,
-        `<b>Dealer short Gamma = amplifier</b>. The initial ${(shock >= 0 ? "+" : "") + shock.toFixed(1)}% shock forces dealers to <b>${buying ? "chase-buy" : "dump"}</b> stock as a <b>trend-following</b> hedge (buy rallies, sell dips), pushing price further to <b>${(finalMove >= 0 ? "+" : "") + finalMove.toFixed(1)}%</b> (${Math.abs(ratio).toFixed(2)}× the shock). Result: <b>volatility is amplified, trends self-reinforce</b> — downward it's an <b>accelerating crash</b>, upward it's a <b>gamma squeeze</b> (2021 meme stocks: call-buying forces dealers to keep chasing) (Stage 8.5).`
-      );
+  const M = (x) => (x / 1e6).toFixed(1) + "M";
+  const draw = (v) => {
+    const pos = PRESETS[preset], D = v["dg-d"] * 1e6, S0 = v["dg-s"];
+    $("#dg-table").innerHTML = `<table><thead><tr><th>${T("合约", "Contract")}</th><th>${T("未平仓量（OI）", "Open interest")}</th><th>${T("做市商真实持仓", "Dealers actually hold")}</th><th>${T("惯例假设", "Convention assumes")}</th></tr></thead><tbody>${pos.map((p) => `<tr${(p.type === "call") !== (p.n > 0) ? ' class="hl"' : ""}><td>${p.K} ${p.type === "call" ? T("看涨", "call") : T("看跌", "put")}</td><td>${Math.abs(p.n).toLocaleString("en-US")}</td><td>${p.n > 0 ? T("多 ", "long ") : T("空 ", "short ")}${Math.abs(p.n).toLocaleString("en-US")}</td><td>${p.type === "call" ? T("多", "long") : T("空", "short")}</td></tr>`).join("")}</tbody></table>`;
+    const gT = bookGamma(pos, S0, DAYS0, false), gV = bookGamma(pos, S0, DAYS0, true);
+    const gexT = gT * S0 * S0 * 0.01, gexV = gV * S0 * S0 * 0.01;
+    const mult = 1 / Math.max(0.25, 1 + gT / D);
+    $("#dg-f").innerHTML = tex(String.raw`\begin{aligned} \text{GEX}_{\text{${T("真实", "true")}}} &= \sum_i n_i\,\Gamma_i \times 100 \times S^2 \times 1\% \\ &= ${(gexT / 1e6).toFixed(1)}\text{M}\ \text{${T("美元/1\\% 波动", "per 1\\% move")}} \end{aligned}`, true)
+      + tex(String.raw`\begin{aligned} \Delta S &= \frac{\varepsilon}{1 + G/D} \\[6pt] &= \frac{\varepsilon}{1 ${gT < 0 ? "-" : "+"} ${(Math.abs(gT) / 1e6).toFixed(3)}/${(D / 1e6).toFixed(1)}} = ${mult.toFixed(2)}\,\varepsilon \end{aligned}`, true)
+      + `<p class="demo-meta">${T("G 和 D 都以百万股计。", "G and D in millions of shares.")}${1 + gT / D < 0.25 ? T("反馈太强时，这个简单模型会发散，演示把乘数封顶在 4 倍。", " When the feedback is this strong the simple model blows up, so the demo caps the multiplier at 4×.") : ""}</p>`;
+    const fT = flip(pos, DAYS0, false), fV = flip(pos, DAYS0, true);
+    $("#dg-stats").innerHTML = stats([
+      [T("供应商式 GEX（按惯例）", "Vendor-style GEX (convention)"), (gexV >= 0 ? "+" : "−") + "$" + M(Math.abs(gexV)), gexV >= 0 ? "pos" : "neg"],
+      [T("真实 GEX", "True GEX"), (gexT >= 0 ? "+" : "−") + "$" + M(Math.abs(gexT)), gexT >= 0 ? "pos" : "neg"],
+      [T("真实翻转点", "True flip level"), fT == null ? T("无", "none") : "$" + fT.toFixed(1), "acc"],
+      [T("惯例翻转点", "Convention flip level"), fV == null ? T("无", "none") : "$" + fV.toFixed(1)],
+      [T("此处冲击被乘以", "Shocks here are multiplied by"), mult.toFixed(2) + "×", mult < 1 ? "pos" : "neg"],
+    ]);
+    $("#dg-curve").innerHTML = lineChart({
+      xmin: 85, xmax: 115, xlabel: T("XYZ 现价（30 天到期）", "XYZ spot (30 days to expiry)"), ylabel: T("GEX（百万美元/1%）", "GEX ($M per 1% move)"),
+      series: [
+        { f: (x) => bookGamma(pos, x, DAYS0, false) * x * x * 0.01 / 1e6, cls: 0, label: T("真实 GEX", "True GEX") },
+        { f: (x) => bookGamma(pos, x, DAYS0, true) * x * x * 0.01 / 1e6, cls: 5, dashed: true, label: T("惯例 GEX（只看 OI）", "Convention GEX (OI only)") },
+      ],
+      samples: 90, markers: [{ x: S0, label: "S" }, ...(fT != null ? [{ x: fT, label: T("翻转", "flip") }] : [])],
+    });
+    // simulate 30 days, 4 steps a day, with and without dealer hedging feedback (same shocks)
+    const R = O.rng(seed), sd = 100 * SIG / Math.sqrt(365 * STEPS_PER_DAY);
+    let Sa = 100, Sb = 100;
+    const pa = [[0, 100]], pb = [[0, 100]];
+    let va = 0, vb = 0;
+    for (let i = 0; i < NSTEP; i++) {
+      const e = sd * R.normal(), days = DAYS0 - i / STEPS_PER_DAY;
+      const G = bookGamma(pos, Sa, days, false);
+      const na = Math.max(1, Sa + e / Math.max(0.25, 1 + G / D));
+      const nb = Math.max(1, Sb + e);
+      va += Math.log(na / Sa) ** 2; vb += Math.log(nb / Sb) ** 2;
+      Sa = na; Sb = nb;
+      pa.push([(i + 1) / STEPS_PER_DAY, Sa]); pb.push([(i + 1) / STEPS_PER_DAY, Sb]);
     }
-    $("#dg-tip").innerHTML = msg;
-  }
-
-  $("#dg-pos").addEventListener("click", (e) => {
-    const btn = e.target.closest("button"); if (!btn) return;
-    pos = btn.dataset.g;
-    [...$("#dg-pos").children].forEach((c) => c.classList.toggle("on", c === btn));
-    paint();
-  });
-  $("#dg-shock").addEventListener("input", paint);
-  paint();
+    const ann = (v) => Math.sqrt((v / NSTEP) * 365 * STEPS_PER_DAY);
+    const strikes = [...new Set(pos.map((p) => p.K))];
+    $("#dg-path").innerHTML = lineChart({
+      xmin: 0, xmax: DAYS0, xlabel: T("天数（到期日在第 30 天）", "Day (expiry on day 30)"), ylabel: "XYZ",
+      series: [
+        { points: pb, cls: 5, dashed: true, label: T("没有做市商对冲", "No dealer hedging") },
+        { points: pa, cls: 0, label: T("有做市商对冲反馈", "With dealer hedging feedback") },
+      ],
+      hlines: strikes.map((k) => ({ y: k, label: "K " + k })),
+    });
+    const rvA = ann(va), rvB = ann(vb);
+    $("#dg-stats2").innerHTML = stats([
+      [T("实现波动率：无对冲", "Realized vol: no hedging"), (rvB * 100).toFixed(1) + "%"],
+      [T("实现波动率：有反馈", "Realized vol: with feedback"), (rvA * 100).toFixed(1) + "%", rvA < rvB ? "pos" : "neg"],
+      [T("到期价：有反馈", "Price at expiry: with feedback"), "$" + Sa.toFixed(2), "acc"],
+      [T("到期价：无对冲", "Price at expiry: no hedging"), "$" + Sb.toFixed(2)],
+    ]);
+  };
+  const spec = { "dg-d": (x) => (+x).toFixed(1) + "M", "dg-s": (x) => "$" + (+x).toFixed(1) };
+  const rerun = bindSliders(root, spec, draw);
+  onSeg(root, "dg-p", (v) => { preset = v; rerun(); });
+  root.querySelector('[data-act="seed"]').addEventListener("click", () => { seed = (seed * 17 + 3) % 1000; rerun(); });
 }

@@ -14,3 +14,8 @@ __pycache__/
 # Logs / temp
 *.log
 .tmp/
+
+# research notes and glossary drafts (not published)
+_research/
+content/glossary-proposals/
+node_modules/

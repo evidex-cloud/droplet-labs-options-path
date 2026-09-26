@@ -1,215 +1,158 @@
-// 交互演示：蒙特卡洛定价 —— 模拟 N 条风险中性 GBM 路径，贴现回报取均值 = MC 价，看它收敛到 BS。
-// N 滑块 100–5000；画 ~30 条样本路径（class "path-mc"）；标准误差带 ±2·SE；对比 BS 真值。
-// 用确定性 PRNG（mulberry32 + Box–Muller，按 seed 复现），所以同一 N 每次渲染一致、随 N 增大收敛。真算。
-import { bsPrice } from "./_bs.js";
+// Main demo for lesson monte-carlo: a Monte Carlo pricing lab. Pick a payoff (European call/put, digital, arithmetic
+// Asian, down-and-out barrier), the number of paths and time steps, antithetic on/off; run; compare with the closed form
+// where one exists (Black-Scholes, digital, continuous-barrier formula, geometric-Asian control variate).
+import * as O from "./_opt.js";
+import { lineChart, seg, onSeg, slider, bindSliders, stats, tex } from "./_viz.js";
+
+function geoAsianCall(S, K, T, r, sigma, n) {
+  const mu = Math.log(S) + (r - 0.5 * sigma * sigma) * T * (n + 1) / (2 * n);
+  const v = sigma * sigma * T * (n + 1) * (2 * n + 1) / (6 * n * n), sv = Math.sqrt(v);
+  const d1 = (mu - Math.log(K) + v) / sv, d2 = d1 - sv;
+  return Math.exp(-r * T) * (Math.exp(mu + v / 2) * O.normCdf(d1) - K * O.normCdf(d2));
+}
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
+  const r = 0.04, BUDGET = 3e6;
+  let kind = "call", paths = 10000, steps = 12, anti = true, seed = 5;
 
-  // 基准参数（与课文一致）：S0=K=100, T=1, r=5%, σ=20% 看涨, BS=10.45
-  const S0 = 100, K = 100, Tt = 1, r = 0.05, sigma = 0.2;
-  const BS = bsPrice({ S: S0, K, T: Tt, r, sigma, type: "call" });
-
-  // 确定性随机数（mulberry32）
-  function mulberry32(a) {
-    return function () {
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function makeGauss(rng) {
-    let spare = null;
-    return function () {
-      if (spare !== null) { const v = spare; spare = null; return v; }
-      let u = 0, v = 0;
-      while (u === 0) u = rng();
-      while (v === 0) v = rng();
-      const mag = Math.sqrt(-2 * Math.log(u));
-      spare = mag * Math.sin(2 * Math.PI * v);
-      return mag * Math.cos(2 * Math.PI * v);
-    };
-  }
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🎲 ${T("蒙特卡洛定价：抽样逼近，向 Black-Scholes 收敛", "Monte Carlo pricing: sampling converges to Black-Scholes")}</div>
-
-      <div class="demo-row" style="margin-bottom:4px">
-        <div class="demo-seg" id="mc-seg">
-          <button data-a="0" class="on">${T("普通抽样", "Plain")}</button>
-          <button data-a="1">${T("对偶变量(方差缩减)", "Antithetic (var. reduction)")}</button>
-        </div>
-        <button class="demo-btn" id="mc-reseed">${T("换一组随机数", "Re-seed")}</button>
-      </div>
-
-      <div class="demo-block">
-        <label class="demo-label">${T("模拟路径数 N", "Number of paths N")} = <b id="mc-n-v">1000</b></label>
-        <input class="demo-slider" id="mc-n" type="range" min="100" max="5000" step="100" value="1000"/>
-      </div>
-
-      <div class="chart" id="mc-chart"></div>
-
-      <div class="stat-row" style="margin-top:12px">
-        <div class="stat"><div class="k">${T("MC 价", "MC price")}</div><div class="v acc" id="mc-price">–</div></div>
-        <div class="stat"><div class="k">${T("BS 真值", "BS truth")}</div><div class="v" id="mc-bs">–</div></div>
-        <div class="stat"><div class="k">${T("标准误差 ±2·SE", "Std. error ±2·SE")}</div><div class="v" id="mc-se">–</div></div>
-        <div class="stat"><div class="k">${T("MC − BS 误差", "MC − BS error")}</div><div class="v" id="mc-err">–</div></div>
-      </div>
-
-      <p class="demo-meta" id="mc-conv"></p>
-
-      <p class="demo-tip">${T(
-        "每条细线是一条风险中性 GBM 路径 S_T = S₀·exp((r−σ²/2)T + σ√T·Z)。MC 价 = 所有路径<b>贴现回报的平均</b>；灰色带是 95% 区间(±2·SE)。把 N 从 100 拖到 5000：价格<b>稳稳收敛到 BS=10.45</b>，误差带按 ~1/√N 收窄(N×4，带宽减半)。切到<b>对偶变量</b>，同样路径数下误差带明显更窄——这就是方差缩减。",
-        "Each thin line is one risk-neutral GBM path S_T = S₀·exp((r−σ²/2)T + σ√T·Z). The MC price is the <b>average discounted payoff</b>; the grey band is the 95% interval (±2·SE). Drag N from 100 to 5000: the price <b>converges to BS=10.45</b>, the band narrowing as ~1/√N (×4 paths halves it). Switch to <b>antithetic</b> and the band shrinks for the same path count — variance reduction."
-      )}</p>
-    </div>`;
-
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("蒙特卡洛定价实验室", "Monte Carlo pricing lab")}</div>
+    <div class="demo-row">${seg("mc-kind", [["call", T("欧式看涨", "European call")], ["put", T("欧式看跌", "European put")], ["digital", T("数字看涨（付 1 美元）", "Digital call (pays $1)")], ["asian", T("算术平均亚式看涨", "Arithmetic Asian call")], ["barrier", T("向下敲出看涨", "Down-and-out call")]], kind)}</div>
+    <div class="demo-grid">
+      ${slider("mc-s", T("现价 S", "Spot S"), 70, 130, 1, 100)}
+      ${slider("mc-k", T("行权价 K", "Strike K"), 70, 150, 1, 100)}
+      ${slider("mc-v", T("波动率 σ", "Volatility σ"), 10, 60, 1, 20)}
+      ${slider("mc-t", T("到期天数", "Days to expiry"), 30, 730, 5, 365)}
+      ${slider("mc-h", T("敲出线 H（仅障碍期权）", "Barrier H (barrier only)"), 60, 99, 1, 90)}
+    </div>
+    <div class="demo-row">
+      <span class="demo-label" style="margin:0">${T("路径数 N", "Paths N")}</span>${seg("mc-n", [["1000", "1k"], ["10000", "10k"], ["50000", "50k"], ["200000", "200k"]], paths)}
+      <span class="demo-label" style="margin:0">${T("时间步（观察日）", "Time steps (fixings)")}</span>${seg("mc-steps", [["12", "12"], ["52", "52"], ["252", "252"]], steps)}
+    </div>
+    <div class="demo-row">
+      <label class="demo-check"><input type="checkbox" id="mc-anti" checked> ${T("对偶变量（Z 与 −Z 成对）", "Antithetic (pair Z with −Z)")}</label>
+      <div class="demo-btns" style="margin:0"><button class="demo-btn on" id="mc-run">${T("运行模拟", "Run simulation")}</button><button class="demo-btn" id="mc-seed">${T("换种子再跑", "New seed and run")}</button></div>
+    </div>
+    <div class="demo-math" id="mc-f"></div>
+    <div id="mc-stats"></div>
+    <p class="demo-meta" id="mc-note"></p>
+    <div id="mc-conv"></div>
+    <div id="mc-paths"></div>
+    <p class="demo-tip">${T("试试：欧式看涨从 1k 换到 200k，误差条缩小约 14 倍（√200）。向下敲出看涨用 12 个观察日会明显高于连续监控公式——漏看了两次观察之间的触线；换成 252 步，差距缩小，但加路径数一点用都没有。数字期权的“逐路径 Δ”恒为 0，要用似然比法。", "Try this: switch the European call from 1k to 200k paths and the error bar shrinks about 14× (√200). With 12 fixings the down-and-out call sits well above the continuous-barrier formula — the simulation misses crossings between fixings; 252 steps narrows the gap, while adding paths does nothing for it. For the digital, the pathwise delta is always 0; the likelihood-ratio estimator still works.")}</p>
+  </div>`;
   const $ = (s) => root.querySelector(s);
-  let anti = false, seed = 12345;
-  const m = (v) => "$" + v.toFixed(2);
+  const pct = (v) => v + "%";
 
-  // 跑一遍蒙特卡洛：返回 {price, se, samplePaths:[[..steps S]], terminalPrice}
-  function runMC(N) {
-    const steps = 30;               // 画图用的步数（路径折线）
-    const dt = Tt / steps;
-    const drift = (r - sigma * sigma / 2) * dt;
-    const vol = sigma * Math.sqrt(dt);
-    const disc = Math.exp(-r * Tt);
-    const rng = mulberry32(seed);
-    const gauss = makeGauss(rng);
-
-    let sum = 0, sum2 = 0, count = 0;
-    const sampleN = Math.min(30, N);     // 最多画 30 条
-    const paths = [];
-
-    // 决定哪些 i 要被记录成样本路径（均匀取 sampleN 条）
-    const recordEvery = Math.max(1, Math.floor(N / sampleN));
-
-    let made = 0;
-    for (let i = 0; i < N; i++) {
-      const record = paths.length < sampleN && i % recordEvery === 0;
-      // 路径 A（+Z 序列）
-      const zs = [];
-      let sA = S0;
-      const pathA = record ? [S0] : null;
-      for (let t = 0; t < steps; t++) {
-        const z = gauss();
-        zs.push(z);
-        sA *= Math.exp(drift + vol * z);
-        if (pathA) pathA.push(sA);
-      }
-      const payA = Math.max(sA - K, 0) * disc;
-
-      if (anti) {
-        // 路径 B 用 −Z，与 A 配成对，取回报平均（方差缩减）
-        let sB = S0;
-        for (let t = 0; t < steps; t++) sB *= Math.exp(drift - vol * zs[t]);
-        const payB = Math.max(sB - K, 0) * disc;
-        const avg = (payA + payB) / 2;
-        sum += avg; sum2 += avg * avg; count++;
-      } else {
-        sum += payA; sum2 += payA * payA; count++;
-      }
-      if (pathA) paths.push(pathA);
-      made++;
+  function simulate() {
+    const S = +$("#mc-s").value, K = +$("#mc-k").value, sigma = +$("#mc-v").value / 100, Tm = +$("#mc-t").value / 365, H = +$("#mc-h").value;
+    const df = Math.exp(-r * Tm), pathLike = kind === "asian" || kind === "barrier";
+    const nSteps = pathLike ? steps : 1;
+    let N = paths; let capped = false;
+    if (N * nSteps > BUDGET) { N = Math.max(1000, Math.floor(BUDGET / nSteps / 1000) * 1000); capped = true; }
+    const R = O.rng(seed), dt = Tm / nSteps, a = (r - 0.5 * sigma * sigma) * dt, b = sigma * Math.sqrt(dt);
+    const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    // payoff of one path from a vector of normals (sign = ±1 for antithetic); returns [discounted payoff, pathwise Δ, LR Δ, cv]
+    const z = new Float64Array(nSteps);
+    const one = (sgn) => {
+      let s = S, sum = 0, ls = 0, alive = true, W = 0;
+      for (let i = 0; i < nSteps; i++) { const e = sgn * z[i]; W += e; s *= Math.exp(a + b * e); sum += s; ls += Math.log(s); if (s <= H) alive = false; }
+      const lr = W * Math.sqrt(dt) / (S * sigma * Tm); // score for dS0 (likelihood ratio)
+      if (kind === "call") return [df * Math.max(s - K, 0), df * (s > K ? s / S : 0), df * Math.max(s - K, 0) * lr, 0];
+      if (kind === "put") return [df * Math.max(K - s, 0), -df * (s < K ? s / S : 0), df * Math.max(K - s, 0) * lr, 0];
+      if (kind === "digital") return [df * (s > K ? 1 : 0), 0, df * (s > K ? 1 : 0) * lr, 0];
+      if (kind === "asian") return [df * Math.max(sum / nSteps - K, 0), 0, 0, df * Math.max(Math.exp(ls / nSteps) - K, 0)];
+      return [alive && S > H ? df * Math.max(s - K, 0) : 0, 0, 0, 0];
+    };
+    let n = 0, mean = 0, m2 = 0, pw = 0, lrs = 0, lr2 = 0, pw2 = 0, cvx = 0, cvxx = 0, cvxy = 0;
+    const conv = []; let mark = 100;
+    const units = anti ? Math.floor(N / 2) : N;
+    const Ys = kind === "asian" ? new Float64Array(units) : null, Xs = kind === "asian" ? new Float64Array(units) : null;
+    for (let u = 0; u < units; u++) {
+      for (let i = 0; i < nSteps; i++) z[i] = R.normal();
+      let v = one(1);
+      if (anti) { const w = one(-1); v = v.map((x, k) => 0.5 * (x + w[k])); }
+      n++; const d = v[0] - mean; mean += d / n; m2 += d * (v[0] - mean);
+      pw += v[1]; pw2 += v[1] * v[1]; lrs += v[2]; lr2 += v[2] * v[2];
+      if (Ys) { Ys[u] = v[0]; Xs[u] = v[3]; cvx += v[3]; }
+      const evals = anti ? 2 * n : n;
+      if (evals >= mark) { conv.push([Math.log10(evals), mean, Math.sqrt(m2 / Math.max(n - 1, 1) / n)]); mark = Math.ceil(mark * 1.25); }
     }
-
-    const mean = sum / count;
-    const variance = Math.max(0, sum2 / count - mean * mean);
-    const se = Math.sqrt(variance / count);
-    return { price: mean, se, paths, steps };
+    const se = Math.sqrt(m2 / Math.max(n - 1, 1) / n);
+    const ms = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0);
+    let ref = null, refLabel = "", refPlain = "", cv = null;
+    if (kind === "call" || kind === "put") { ref = O.bsPrice({ S, K, T: Tm, r, sigma, type: kind }); refLabel = refPlain = T("BS 公式", "BS formula"); }
+    if (kind === "digital") { ref = df * O.normCdf(O.d1d2({ S, K, T: Tm, r, sigma }).d2); refLabel = T("公式 ", "Formula ") + tex(String.raw`e^{-rT}\N(d_2)`); refPlain = T("公式", "Formula"); }
+    if (kind === "barrier") { ref = K > H ? O.downOutCall({ S, K, H, T: Tm, r, sigma }) : null; refLabel = refPlain = T("连续监控公式", "Continuous-barrier formula"); }
+    if (kind === "asian") {
+      const G = geoAsianCall(S, K, Tm, r, sigma, nSteps); const mx = cvx / n;
+      let sxy = 0, sxx = 0; for (let u = 0; u < n; u++) { sxy += (Ys[u] - mean) * (Xs[u] - mx); sxx += (Xs[u] - mx) ** 2; }
+      const beta = sxx > 0 ? sxy / sxx : 0; let vv = 0; const vals = new Float64Array(n);
+      for (let u = 0; u < n; u++) vals[u] = Ys[u] - beta * (Xs[u] - G);
+      const cm = mean - beta * (mx - G); for (let u = 0; u < n; u++) vv += (vals[u] - cm) ** 2;
+      cv = { price: cm, se: Math.sqrt(vv / Math.max(n - 1, 1) / n), beta, G };
+      ref = cm; refLabel = refPlain = T("控制变量估计", "Control-variate estimate");
+    }
+    return { S, K, sigma, Tm, H, N: anti ? 2 * n : n, capped, nSteps, mean, se, ms, ref, refLabel, refPlain, cv, conv,
+      pw: pw / n, pwSe: Math.sqrt(Math.max(pw2 / n - (pw / n) ** 2, 0) / n), lr: lrs / n, lrSe: Math.sqrt(Math.max(lr2 / n - (lrs / n) ** 2, 0) / n), df };
   }
 
-  // 自绘 SVG：左半区画样本路径(price-time)，并叠加 MC 价水平线 + ±2SE 带 + BS 线
-  function drawChart(res, N) {
-    const W = 560, H = 280;
-    const mL = 46, mR = 14, mT = 16, mB = 28;
-    const plotL = mL, plotR = W - mR, plotT = mT, plotB = H - mB;
-    const steps = res.steps;
-
-    // y 轴：股价范围，覆盖路径与 K
-    let ymin = Infinity, ymax = -Infinity;
-    for (const p of res.paths) for (const v of p) { if (v < ymin) ymin = v; if (v > ymax) ymax = v; }
-    if (!isFinite(ymin)) { ymin = 60; ymax = 160; }
-    ymin = Math.min(ymin, K) * 0.96; ymax = Math.max(ymax, K) * 1.02;
-
-    const xMap = (t) => plotL + (t / steps) * (plotR - plotL);
-    const yMap = (y) => plotB - (y - ymin) / (ymax - ymin) * (plotB - plotT);
-
-    // 网格 x（时间）
-    let grid = "";
-    for (let i = 0; i <= 4; i++) {
-      const px = plotL + (plotR - plotL) * (i / 4);
-      grid += `<line class="grid" x1="${px.toFixed(1)}" y1="${plotT}" x2="${px.toFixed(1)}" y2="${plotB}"/>`;
-    }
-    // 行权价 K 水平线
-    const kY = yMap(K);
-    const kLine = `<line class="zero" x1="${plotL}" y1="${kY.toFixed(1)}" x2="${plotR}" y2="${kY.toFixed(1)}"/>`
-      + `<text class="lbl-axis" x="${plotR - 2}" y="${(kY - 4).toFixed(1)}" text-anchor="end" style="fill:var(--gold)">K=${K}</text>`;
-
-    // 样本路径
-    const lines = res.paths.map((p) => {
-      const pts = p.map((y, t) => `${xMap(t).toFixed(1)},${yMap(y).toFixed(1)}`).join(" ");
-      return `<polyline class="path-mc" points="${pts}"/>`;
-    }).join("");
-
-    // y 轴标签
-    let ylab = "";
-    for (const yv of [ymax, (ymin + ymax) / 2, ymin]) {
-      ylab += `<text class="lbl-axis" x="${plotL - 6}" y="${(yMap(yv) + 3).toFixed(1)}" text-anchor="end">${yv.toFixed(0)}</text>`;
-    }
-    const startDot = `<circle cx="${xMap(0).toFixed(1)}" cy="${yMap(S0).toFixed(1)}" r="3" fill="var(--accent)"/>`
-      + `<text class="lbl-axis" x="${(plotL + 4).toFixed(1)}" y="${(yMap(S0) - 6).toFixed(1)}">S₀=${S0}</text>`;
-    const xname = `<text class="lbl-axis" x="${((plotL + plotR) / 2).toFixed(1)}" y="${H - 2}" text-anchor="middle">${T("时间 0 → 到期 T", "time 0 → expiry T")}</text>`;
-
-    $("#mc-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img">
-      ${grid}${kLine}
-      <line class="axis" x1="${plotL}" y1="${plotT}" x2="${plotL}" y2="${plotB}"/>
-      <line class="axis" x1="${plotL}" y1="${plotB}" x2="${plotR}" y2="${plotB}"/>
-      ${lines}${startDot}${ylab}${xname}
-    </svg>`;
-  }
-
-  // 收敛阶梯：固定 seed 下，N=200/1000/5000 的 MC 价
-  function convergenceRow() {
-    const savedAnti = anti;
-    const ladder = [200, 1000, 5000].map((nn) => {
-      const r2 = runMC(nn);
-      return `N=${nn} → ${m(r2.price)}`;
+  function render() {
+    const res = simulate();
+    const { S, K, sigma, Tm, H, mean, se, ref } = res;
+    const names = { call: String.raw`\max(S_T-K,0)`, put: String.raw`\max(K-S_T,0)`, digital: String.raw`\mathbf{1}_{S_T>K}`, asian: String.raw`\max\!\big(\tfrac{1}{m}\textstyle\sum_{j} S_{t_j}-K,\,0\big)`, barrier: String.raw`\max(S_T-K,0)\,\mathbf{1}_{\min_j S_{t_j} > H}` };
+    $("#mc-f").innerHTML = tex(String.raw`\hat V = e^{-rT}\,\frac{1}{N}\sum_{i=1}^{N} ${names[kind]}`, true) + tex(String.raw`= ${mean.toFixed(4)} \pm ${se.toFixed(4)} \quad (N = ${res.N.toLocaleString("en-US").replace(/,/g, "{,}")})`, true);
+    const inCI = ref != null && kind !== "asian" && kind !== "barrier" ? Math.abs(mean - ref) <= 1.96 * se : null;
+    const items = [
+      [T("蒙特卡洛估计", "Monte Carlo estimate"), "$" + mean.toFixed(4), "acc"],
+      [T("标准误 SE", "Standard error"), "±" + se.toFixed(4)],
+      [T("95% 区间", "95% interval"), `${(mean - 1.96 * se).toFixed(3)} – ${(mean + 1.96 * se).toFixed(3)}`],
+    ];
+    if (ref != null) items.push([res.refLabel, "$" + ref.toFixed(4) + (res.cv ? " ± " + res.cv.se.toFixed(4) : ""), inCI === false ? "neg" : inCI ? "pos" : ""]);
+    if (kind === "call" || kind === "put") { const g = O.greeks({ S, K, T: Tm, r, sigma, type: kind }); items.push([T("逐路径 Δ（BS Δ）", "Pathwise Δ (BS Δ)"), `${res.pw.toFixed(3)} ± ${res.pwSe.toFixed(3)} (${g.delta.toFixed(3)})`]); }
+    if (kind === "digital") { const d2 = O.d1d2({ S, K, T: Tm, r, sigma }).d2; const exact = res.df * O.normPdf(d2) / (S * sigma * Math.sqrt(Tm)); items.push([T("Δ：逐路径 / 似然比（精确）", "Δ: pathwise / likelihood ratio (exact)"), `0 / ${res.lr.toFixed(4)} ± ${res.lrSe.toFixed(4)} (${exact.toFixed(4)})`]); }
+    items.push([T("耗时", "Time"), res.ms.toFixed(0) + " ms"]);
+    $("#mc-stats").innerHTML = stats(items);
+    let note = "";
+    if (res.capped) note += T(`为保持流畅，路径数 × 步数上限约 300 万，这次只跑了 ${res.N.toLocaleString("en-US")} 条路径。`, `To stay responsive, paths × steps is capped at about 3 million; this run used ${res.N.toLocaleString("en-US")} paths. `);
+    if (kind === "barrier") note += K > H ? T(`模拟只在 ${res.nSteps} 个观察日检查是否触线；公式假设连续监控，所以模拟价偏高 ${(mean - ref).toFixed(3)}。这是离散化偏差，加路径不会让它消失。`, `The simulation checks the barrier only on ${res.nSteps} fixings; the formula assumes continuous monitoring, so the simulated price is higher by ${(mean - ref).toFixed(3)}. That is discretisation bias — more paths will not remove it.`) : T("此处需要 K > H 才有公式可比。", "The closed form here needs K > H.");
+    if (kind === "asian" && res.cv) note += T(`控制变量：几何平均亚式公式价 ${res.cv.G.toFixed(4)}，β = ${res.cv.beta.toFixed(3)}；同样的路径，标准误从 ${se.toFixed(4)} 降到 ${res.cv.se.toFixed(4)}。`, `Control variate: geometric-Asian formula ${res.cv.G.toFixed(4)}, β = ${res.cv.beta.toFixed(3)}; on the same paths the standard error falls from ${se.toFixed(4)} to ${res.cv.se.toFixed(4)}.`);
+    if (inCI === false) note += T(" 这次公式价落在 95% 区间外——20 次里约有 1 次会这样，换种子再跑看看。", " This time the formula lies outside the 95% interval — expect that about once in twenty runs; try a new seed.");
+    $("#mc-note").textContent = note;
+    const c = res.conv;
+    const lo = Math.min(...c.map((x) => x[1] - 2 * x[2]), ref ?? Infinity), hi = Math.max(...c.map((x) => x[1] + 2 * x[2]), ref ?? -Infinity);
+    const span = Math.max(hi - lo, 1e-6);
+    $("#mc-conv").innerHTML = lineChart({
+      xmin: 2, xmax: Math.max(3, Math.log10(res.N)), ymin: lo - span * 0.05, ymax: hi + span * 0.05, xstep: 1,
+      xlabel: T("已用路径数（对数刻度）", "Paths used so far (log scale)"), ylabel: T("估计值", "Estimate"),
+      xfmt: (v) => { const x = 10 ** v; return x >= 1000 ? x / 1000 + "k" : String(x); }, yfmt: (v) => (+v.toPrecision(4)).toString(),
+      series: [
+        { points: c.map(([x, m, s]) => [x, m + 1.96 * s]), cls: 5, dashed: true, label: "± 1.96 SE" },
+        { points: c.map(([x, m, s]) => [x, m - 1.96 * s]), cls: 5, dashed: true },
+        { points: c.map(([x, m]) => [x, m]), cls: 0, label: T("累计估计", "Running estimate") },
+      ],
+      hlines: ref != null ? [{ y: ref, label: res.refPlain }] : [],
     });
-    anti = savedAnti;
-    return ladder.join(",  ");
+    // a few sample paths
+    const R = O.rng(seed + 1), ns = 52, dt = Tm / ns, pts = [];
+    for (let p = 0; p < 16; p++) { let s = S; const row = [[0, s]]; for (let i = 1; i <= ns; i++) { s *= Math.exp((r - 0.5 * sigma * sigma) * dt + sigma * Math.sqrt(dt) * R.normal()); row.push([i * dt * 365, s]); } pts.push(row); }
+    const hl = [{ y: K, label: "K" }]; if (kind === "barrier") hl.push({ y: H, label: "H" });
+    $("#mc-paths").innerHTML = lineChart({
+      xmin: 0, xmax: Tm * 365, H: 220, xlabel: T("天数", "Days"), ylabel: T("风险中性路径（示意 16 条）", "Risk-neutral paths (16 shown)"),
+      series: pts.map((row, k) => ({ points: row, cls: k === 0 ? 0 : 5 })), hlines: hl, yfmt: (v) => "$" + v,
+    });
   }
 
-  function paint() {
-    const N = +$("#mc-n").value;
-    $("#mc-n-v").textContent = N;
-    const res = runMC(N);
-
-    drawChart(res, N);
-
-    $("#mc-price").textContent = m(res.price);
-    $("#mc-bs").textContent = m(BS);
-    $("#mc-se").textContent = "±" + (2 * res.se).toFixed(2);
-    const err = res.price - BS;
-    $("#mc-err").textContent = (err >= 0 ? "+" : "") + err.toFixed(2);
-    $("#mc-err").className = "v " + (Math.abs(err) <= 2 * res.se ? "pos" : "neg");
-
-    $("#mc-conv").innerHTML =
-      `${T("收敛阶梯", "Convergence ladder")} (${anti ? T("对偶", "antithetic") : T("普通", "plain")}): ` +
-      convergenceRow() + `  <span class="pill acc">Black-Scholes = ${m(BS)}</span>`;
-  }
-
-  $("#mc-seg").addEventListener("click", (e) => {
-    const b = e.target.closest("button"); if (!b) return;
-    anti = b.dataset.a === "1";
-    [...$("#mc-seg").children].forEach((c) => c.classList.toggle("on", c === b));
-    paint();
-  });
-  $("#mc-reseed").addEventListener("click", () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; paint(); });
-  $("#mc-n").addEventListener("input", paint);
-  paint();
+  let ready = false;
+  const stale = () => { if (ready) $("#mc-note").textContent = T("设置已改变——按“运行模拟”更新结果。", "Settings changed — press Run simulation to update the results."); };
+  bindSliders(root, { "mc-s": (v) => "$" + v, "mc-k": (v) => "$" + v, "mc-v": pct, "mc-t": (v) => v + T(" 天", " days"), "mc-h": (v) => "$" + v }, stale);
+  onSeg(root, "mc-kind", (v) => { kind = v; render(); });
+  onSeg(root, "mc-n", (v) => { paths = +v; stale(); });
+  onSeg(root, "mc-steps", (v) => { steps = +v; stale(); });
+  $("#mc-anti").addEventListener("change", (e) => { anti = e.target.checked; stale(); });
+  $("#mc-run").addEventListener("click", render);
+  $("#mc-seed").addEventListener("click", () => { seed = (seed * 48271 + 11) % 2147483647; render(); });
+  render();
+  ready = true;
 }

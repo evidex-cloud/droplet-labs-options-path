@@ -1,149 +1,151 @@
-// 交互演示（说明性 / illustrative deep-hedging idea）：
-// 卖出 1 张 ATM 看涨，用股票动态对冲，跑 2500 条确定性 GBM 路径，比较两种对冲策略：
-//   (A) 经典 BS Delta 对冲：每步都把持股精确调到 Delta×100（band=0，always rebalance）。
-//   (B) 成本感知对冲：设一条“不动带”——净 Delta 缺口在 ±8 股内就不动手，省过路费、容忍小残差。
-// 交易成本 k 由滑块控制（单步成本 = k·|Δshares|·S）。展示两者最终“对冲盈亏”的均值/标准差，
-// 以及一个风险调整评分 score = mean − 0.5·std。关键现象（真算、可复现）：
-//   k=0 时 BS 更优（其假设成立）；k>0 起，成本感知在风险调整下胜出，差距随成本扩大——这正是深度对冲的思想。
-// 诚实标注：真正的深度对冲用神经网络“学”这条不动带；这里用一条手写的固定带来示意同一个取舍。
+// Main demo for lesson deep-hedging: "train" a tiny hedging policy (a no-trade band around the BS delta)
+// by minimising a risk measure (CVaR or standard deviation) of the hedged P&L on simulated paths with
+// proportional trading costs, then test it on fresh paths — including worlds the policy never saw.
+import * as O from "./_opt.js";
+import { lineChart, seg, onSeg, slider, stats, tex } from "./_viz.js";
+
+const S0 = 100, K = 100, TT = 30 / 365, R_ = 0.04, SIG = 0.2;
+
+// Simulate paths and cache the Black-Scholes delta (σ = 20%) at every hedge check — the "features" the policy sees.
+export function makeWorld({ n = 1000, perDay = 4, seed = 11, sigReal = SIG, jumpInt = 0, jumpSize = -0.08 }) {
+  const steps = 30 * perDay, dt = TT / steps, R = O.rng(seed), P = [];
+  const drift = (R_ - (sigReal * sigReal) / 2) * dt, vol = sigReal * Math.sqrt(dt);
+  for (let p = 0; p < n; p++) {
+    const S = new Float64Array(steps + 1), D = new Float64Array(steps);
+    S[0] = S0;
+    let s = S0;
+    for (let i = 0; i < steps; i++) {
+      s *= Math.exp(drift + vol * R.normal());
+      if (jumpInt > 0 && R() < jumpInt * dt) s *= 1 + jumpSize;
+      S[i + 1] = s;
+    }
+    for (let i = 0; i < steps; i++) {
+      const tau = TT - i * dt, v = SIG * Math.sqrt(tau);
+      D[i] = O.normCdf((Math.log(S[i] / K) + (R_ + (SIG * SIG) / 2) * tau) / v);
+    }
+    P.push({ S, D });
+  }
+  return { P, steps, dt };
+}
+
+// Hedge a short call with a no-trade band of half-width b around delta; cost k × |shares traded| × S.
+// Returns per-share P&L at expiry for every path (premium 2.45 received at t = 0, cash earns r).
+export function runBand(world, k, b) {
+  const { P, steps, dt } = world, prem = O.bsPrice({ S: S0, K, T: TT, r: R_, sigma: SIG, type: "call" });
+  const g = Math.exp(R_ * dt), pl = new Float64Array(P.length);
+  let trades = 0, costSum = 0;
+  for (let p = 0; p < P.length; p++) {
+    const { S, D } = P[p];
+    let cash = prem, h = 0, cost = 0;
+    for (let i = 0; i < steps; i++) {
+      const lo = D[i] - b, hi = D[i] + b;
+      const nh = h < lo ? lo : h > hi ? hi : h;
+      if (nh !== h) { const q = nh - h, c = k * S[i] * Math.abs(q); cash -= q * S[i] + c; cost += c; h = nh; trades++; }
+      cash *= g;
+    }
+    const ST = S[steps];
+    pl[p] = cash + h * ST - Math.max(ST - K, 0);
+    costSum += cost;
+  }
+  return { pl, trades: trades / P.length, cost: costSum / P.length };
+}
+
+// Risk measures on the loss L = −P&L
+export function risk(pl, measure) {
+  const n = pl.length, L = Array.from(pl, (x) => -x).sort((a, b) => a - b);
+  const mean = -L.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(L.reduce((a, b) => a + (-b - mean) ** 2, 0) / (n - 1));
+  const cvarAt = (al) => { const i = Math.floor(al * n), t = L.slice(i); return t.reduce((a, b) => a + b, 0) / t.length; };
+  const out = { mean, sd, var95: L[Math.floor(0.95 * n)], cvar95: cvarAt(0.95), cvar99: cvarAt(0.99) };
+  out.obj = measure === "sd" ? sd : measure === "cvar99" ? out.cvar99 : out.cvar95;
+  return out;
+}
+
+export function train({ k, perDay, measure, n = 1000, w = null }) {
+  w = w || makeWorld({ n, perDay, seed: 11 });
+  const grid = [];
+  let best = null;
+  for (let b = 0; b <= 0.2 + 1e-9; b += 0.005) {
+    const r = risk(runBand(w, k, b).pl, measure);
+    grid.push([b, r.obj]);
+    if (!best || r.obj < best.obj - 1e-12) best = { b, obj: r.obj };
+  }
+  return { grid, best };
+}
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-
-  // 标准正态 CDF + ATM 看涨定价/Delta（自带，避免与 _bs 口径耦合）
-  const normCDF = (x) => {
-    const t = 1 / (1 + 0.2316419 * Math.abs(x));
-    const d = 0.3989422804014327 * Math.exp(-x * x / 2);
-    const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
-    return x >= 0 ? 1 - p : p;
-  };
-  const K = 100, r = 0, sig = 0.20, Tt = 30 / 365, STEPS = 30, mult = 100, PATHS = 2500;
-  const bsCall = (S, K, T, r, sig) => {
-    if (T <= 0 || sig <= 0) return Math.max(S - K, 0);
-    const s = sig * Math.sqrt(T), d1 = (Math.log(S / K) + (r + sig * sig / 2) * T) / s;
-    return S * normCDF(d1) - K * Math.exp(-r * T) * normCDF(d1 - s);
-  };
-  const callDelta = (S, K, T, r, sig) => {
-    if (T <= 0 || sig <= 0) return S > K ? 1 : 0;
-    const s = sig * Math.sqrt(T);
-    return normCDF((Math.log(S / K) + (r + sig * sig / 2) * T) / s);
-  };
-  // 确定性 PRNG（同 seed → 可复现）
-  const mulberry32 = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const gaussGen = (rng) => { let sp = null; return () => { if (sp !== null) { const v = sp; sp = null; return v; } let u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); const m = Math.sqrt(-2 * Math.log(u)); sp = m * Math.sin(2 * Math.PI * v); return m * Math.cos(2 * Math.PI * v); }; };
-
-  const BAND = 8; // 成本感知策略的不动带（股）
-
-  // 跑全部路径，返回某策略的对冲盈亏分布统计。band=0 即 BS（每步必调）。
-  function run(k, band) {
-    const dt = Tt / STEPS, drift = (r - sig * sig / 2) * dt, vol = sig * Math.sqrt(dt);
-    const rng = mulberry32(99991), g = gaussGen(rng);
-    const prem = bsCall(K, K, Tt, r, sig) * mult;
-    const errs = [];
-    let tradeSum = 0;
-    for (let p = 0; p < PATHS; p++) {
-      let S = K, shares = 0, cash = 0, cost = 0, trades = 0;
-      for (let i = 0; i < STEPS; i++) {
-        const tau = Math.max(1e-6, Tt - i * dt);
-        const target = callDelta(S, K, tau, r, sig) * mult;
-        const gap = target - shares;
-        if (Math.abs(gap) > band) { cash -= gap * S; cost += k * Math.abs(gap) * S; shares = target; trades++; }
-        S = S * Math.exp(drift + vol * g());
-      }
-      cash += shares * S;
-      const owed = Math.max(S - K, 0) * mult;
-      errs.push(prem + cash - owed - cost);
-      tradeSum += trades;
-    }
-    const mean = errs.reduce((a, b) => a + b, 0) / errs.length;
-    const variance = errs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / errs.length;
-    return { mean, std: Math.sqrt(variance), avgTrades: tradeSum / PATHS, prem };
-  }
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🧠 ${T("深度对冲的思想：成本感知的“不动带” vs 机械 Delta 对冲", "The deep-hedging idea: a cost-aware no-trade band vs mechanical delta-hedging")}
-        <span class="pill gold" style="margin-left:8px">${T("示意 / 教学", "illustrative")}</span>
-      </div>
-
-      <div class="demo-block">
-        <label class="demo-label">${T("交易成本 k（每笔股票交易额的比例：价差+佣金+滑点）", "Transaction cost k (fraction of each stock trade: spread+commission+slippage)")} = <b id="dh-k-v">0.50%</b></label>
-        <input class="demo-slider" id="dh-k" type="range" min="0" max="2" step="0.05" value="0.5"/>
-      </div>
-
-      <div class="cmp" style="margin-top:10px">
-        <div class="cmp-cell">
-          <h5>${T("(A) 经典 BS Delta 对冲（每步精确再平衡）", "(A) Classic BS delta-hedge (rebalance every step)")}</h5>
-          <div class="stat-row" style="margin-top:6px">
-            <div class="stat"><div class="k">${T("盈亏均值", "Mean P&L")}</div><div class="v" id="dh-bs-mean">–</div></div>
-            <div class="stat"><div class="k">${T("盈亏标准差", "Std P&L")}</div><div class="v" id="dh-bs-std">–</div></div>
-          </div>
-          <div class="demo-meta" id="dh-bs-tr" style="margin-top:6px"></div>
-        </div>
-        <div class="cmp-cell">
-          <h5>${T("(B) 成本感知（缺口 < ±8 股就不动手）", "(B) Cost-aware (don't trade while gap < ±8 sh)")}</h5>
-          <div class="stat-row" style="margin-top:6px">
-            <div class="stat"><div class="k">${T("盈亏均值", "Mean P&L")}</div><div class="v acc" id="dh-ca-mean">–</div></div>
-            <div class="stat"><div class="k">${T("盈亏标准差", "Std P&L")}</div><div class="v" id="dh-ca-std">–</div></div>
-          </div>
-          <div class="demo-meta" id="dh-ca-tr" style="margin-top:6px"></div>
-        </div>
-      </div>
-
-      <div class="stat-row" style="margin-top:12px">
-        <div class="stat"><div class="k">${T("BS 风险调整分", "BS risk-adj score")}</div><div class="v" id="dh-sbs">–</div></div>
-        <div class="stat"><div class="k">${T("成本感知 风险调整分", "Cost-aware score")}</div><div class="v" id="dh-sca">–</div></div>
-        <div class="stat"><div class="k">${T("谁更优", "Winner")}</div><div class="v" id="dh-win">–</div></div>
-      </div>
-      <p class="demo-meta">${T("风险调整分 = 均值 − 0.5×标准差（越高越好，简单的均值-方差权衡）。", "Risk-adjusted score = mean − 0.5×std (higher is better; a simple mean-variance trade-off).")}</p>
-
-      <p class="demo-tip" id="dh-tip"></p>
-    </div>`;
-
+  let perDay = 4, measure = "cvar95", world = "same";
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("训练一个会“偷懒”的对冲策略：无交易带 vs 机械 Delta", "Train a hedging policy that knows when not to trade: no-trade band vs mechanical delta")}</div>
+    <p class="demo-meta">${T("场景：做市商卖出 1 张 XYZ 30 天、行权价 100 的看涨（每股 2.45 美元，σ = 20%，r = 4%），用股票对冲到期。策略只有一个参数：Delta 周围的“无交易带”半宽 b。b = 0 就是教科书式的 Delta 对冲。", "Setup: a dealer sells one XYZ 30-day 100 call ($2.45 per share, σ = 20%, r = 4%) and hedges with stock until expiry. The policy has one parameter: the half-width b of a no-trade band around delta. b = 0 is textbook delta hedging.")}</p>
+    <div class="demo-grid">
+      ${slider("dh-k", T("交易成本 k（占成交额）", "Trading cost k (of traded value)"), 0, 0.5, 0.05, 0.1)}
+      <div class="demo-field"><div class="demo-label">${T("每天检查对冲几次", "Hedge checks per day")}</div>${seg("dh-freq", [["1", "1"], ["4", "4"], ["12", "12"]], "4")}</div>
+    </div>
+    <div class="demo-row"><div class="demo-field"><div class="demo-label">${T("训练目标（风险度量）", "Training objective (risk measure)")}</div>${seg("dh-m", [["cvar95", "CVaR 95%"], ["cvar99", "CVaR 99%"], ["sd", T("标准差", "Std. dev.")]], "cvar95")}</div>
+    <div class="demo-field"><div class="demo-label">${T("测试世界", "Test world")}</div>${seg("dh-w", [["same", T("与训练相同", "Same as training")], ["vol", T("真实波动 30%", "Realized vol 30%")], ["jump", T("会跳空下跌", "Downward jumps")]], "same")}</div></div>
+    <div class="demo-math" id="dh-f"></div>
+    <div id="dh-train"></div>
+    <div id="dh-stats"></div>
+    <div id="dh-hist"></div>
+    <div id="dh-tab"></div>
+    <p class="demo-tip">${T("试试：把成本调到 0，最优带宽缩到接近 0（学回了 Delta 对冲）；成本越高，带越宽。再把测试世界换成“真实波动 30%”或“跳空”：两种策略都亏更多——策略只在它训练过的世界里最优。", "Try this: set the cost to 0 and the best band shrinks toward 0 (it rediscovers delta hedging); raise the cost and the band widens. Then switch the test world to “Realized vol 30%” or “Downward jumps”: both policies lose more — a policy is only optimal in the world it was trained on.")}</p>
+  </div>`;
   const $ = (s) => root.querySelector(s);
-  const money = (v) => (v < 0 ? "−$" : "$") + Math.abs(v).toFixed(0);
-
-  function paint() {
+  const usd = (x) => (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(0);
+  const mName = () => (measure === "sd" ? T("标准差", "std. dev.") : measure === "cvar99" ? "CVaR 99%" : "CVaR 95%");
+  let cacheKey = "", testW = null, trainKey = 0, trainW = null;
+  const draw = () => {
     const k = +$("#dh-k").value / 100;
-    $("#dh-k-v").textContent = (k * 100).toFixed(2) + "%";
-
-    const bs = run(k, 0);       // BS：band=0，每步必调
-    const ca = run(k, BAND);    // 成本感知：固定不动带
-
-    $("#dh-bs-mean").textContent = money(bs.mean);
-    $("#dh-bs-mean").className = "v " + (bs.mean >= 0 ? "pos" : "neg");
-    $("#dh-bs-std").textContent = "$" + bs.std.toFixed(0);
-    $("#dh-bs-tr").innerHTML = T(`平均 <b>${bs.avgTrades.toFixed(0)}</b> 次再平衡/路径`, `~<b>${bs.avgTrades.toFixed(0)}</b> rebalances/path`);
-
-    $("#dh-ca-mean").textContent = money(ca.mean);
-    $("#dh-ca-mean").className = "v " + (ca.mean >= 0 ? "pos" : "neg");
-    $("#dh-ca-std").textContent = "$" + ca.std.toFixed(0);
-    $("#dh-ca-tr").innerHTML = T(`平均 <b>${ca.avgTrades.toFixed(1)}</b> 次再平衡/路径（省下大量过路费）`, `~<b>${ca.avgTrades.toFixed(1)}</b> rebalances/path (saving fees)`);
-
-    const sBS = bs.mean - 0.5 * bs.std, sCA = ca.mean - 0.5 * ca.std;
-    $("#dh-sbs").textContent = money(sBS);
-    $("#dh-sca").textContent = money(sCA);
-    const caWins = sCA > sBS;
-    $("#dh-win").textContent = caWins ? T("成本感知", "Cost-aware") : T("BS Delta", "BS delta");
-    $("#dh-win").className = "v " + (caWins ? "acc" : "");
-
-    let tip;
-    if (k < 0.0001) {
-      tip = T(
-        `<b>零交易成本（童话世界）</b>：BS Delta 对冲把残差风险压得最小（标准差最低），<b>它更优</b>——正如 Black-Scholes 假设所预言。此时频繁对冲不要钱，机械 Delta 就是答案。<b>把成本滑块往右拖一点</b>，看童话如何破灭。`,
-        `<b>Zero cost (the fairy tale)</b>: BS delta-hedging minimizes residual risk (lowest std), so <b>it wins</b> — exactly as Black-Scholes assumes. With free trading, mechanical delta is optimal. <b>Nudge the cost slider right</b> and watch the fairy tale break.`
-      );
-    } else {
-      const drag = bs.mean - ca.mean; // BS 比 CA 多亏多少（成本拖累）
-      tip = T(
-        `<b>交易成本 k=${(k * 100).toFixed(2)}%</b>：机械 BS Delta 每条路径硬调 <b>${bs.avgTrades.toFixed(0)}</b> 次，过路费把均值拖到 ${money(bs.mean)}；成本感知只在缺口够大时动手（约 ${ca.avgTrades.toFixed(1)} 次），均值 <b>${money(ca.mean)}</b>，比 BS 少亏约 <b>${money(Math.abs(drag))}</b>。它<b>容忍一点残差风险换来大笔成本节省</b>，在风险调整分上<b>${caWins ? "胜出" : "尚未胜出"}</b>（${money(sCA)} vs ${money(sBS)}）。<br>这正是<b>深度对冲</b>的核心：真实的它用神经网络<b>自己学出</b>这条“不动带”（成本越高带越宽），而非我们手写——但结论一致：<b>有摩擦时，懂得“何时不动手”胜过永远在修正</b>（阶段 8.2、10.3）。`,
-        `<b>Cost k=${(k * 100).toFixed(2)}%</b>: mechanical BS delta forces <b>${bs.avgTrades.toFixed(0)}</b> rebalances/path, dragging the mean to ${money(bs.mean)}; the cost-aware rule trades only when the gap is large enough (~${ca.avgTrades.toFixed(1)} times), mean <b>${money(ca.mean)}</b> — about <b>${money(Math.abs(drag))}</b> less loss than BS. It <b>accepts a little residual risk to save a lot of cost</b>, and on the risk-adjusted score it <b>${caWins ? "wins" : "doesn't yet win"}</b> (${money(sCA)} vs ${money(sBS)}).<br>This is the essence of <b>deep hedging</b>: the real method has a neural net <b>learn</b> this no-trade band itself (wider when costs are higher) instead of us hand-coding it — same conclusion: <b>with frictions, knowing when NOT to trade beats always correcting</b> (Stages 8.2, 10.3).`
-      );
+    $("#dh-k-v").textContent = (+$("#dh-k").value).toFixed(2) + "%";
+    if (trainKey !== perDay) { trainW = makeWorld({ n: 1000, perDay, seed: 11 }); trainKey = perDay; }
+    const tr = train({ k, perDay, measure, w: trainW });
+    const key = perDay + world;
+    if (key !== cacheKey) {
+      testW = makeWorld({ n: 1000, perDay, seed: 99, sigReal: world === "vol" ? 0.3 : SIG, jumpInt: world === "jump" ? 4 : 0 });
+      cacheKey = key;
     }
-    $("#dh-tip").innerHTML = tip;
-  }
-
-  $("#dh-k").addEventListener("input", paint);
-  paint();
+    const d0 = runBand(testW, k, 0), db = runBand(testW, k, tr.best.b);
+    const r0 = risk(d0.pl, measure), rb = risk(db.pl, measure);
+    const rhoTex = measure === "sd" ? String.raw`\text{std}` : measure === "cvar99" ? String.raw`\text{CVaR}_{99\%}` : String.raw`\text{CVaR}_{95\%}`;
+    $("#dh-f").innerHTML = tex(String.raw`b^{*} = \arg\min_{b}\ \rho\big(-\text{P\&L}_{b}\big) = ${tr.best.b.toFixed(3)}`, true)
+      + tex(String.raw`\rho = ${rhoTex},\qquad k = ${(k * 100).toFixed(2)}\%,\qquad ${perDay}\ \text{${T("次/天", "checks/day")}}`, true);
+    // show the band range around the optimum (at least 0–0.1) so the minimum is visible and nothing is clipped
+    const bmax = Math.min(0.2, Math.max(0.1, Math.ceil((2.2 * tr.best.b + 0.02) * 20) / 20));
+    const shown = tr.grid.filter(([b]) => b <= bmax + 1e-9), ys = shown.map((p) => p[1] * 100);
+    const ylo = Math.min(...ys), yhi = Math.max(...ys), pad = Math.max(2, (yhi - ylo) * 0.08);
+    $("#dh-train").innerHTML = lineChart({
+      series: [{ points: shown.map(([b, v]) => [b, v * 100]), cls: 0, label: T("训练集上的风险（每张合约）", "Risk on training paths (per contract)"), dots: false }],
+      xmin: 0, xmax: bmax, ymin: Math.max(0, ylo - pad), ymax: yhi + pad,
+      xlabel: T("无交易带半宽 b（Delta 单位）", "No-trade band half-width b (delta units)"), ylabel: mName() + " ($)",
+      points: [{ x: 0, y: tr.grid[0][1] * 100, cls: 2, label: T("Delta 对冲", "delta hedge") }, { x: tr.best.b, y: tr.best.obj * 100, cls: 3, label: "b* = " + tr.best.b.toFixed(3) }],
+      H: 230, yfmt: (v) => "$" + v.toFixed(0),
+    });
+    $("#dh-stats").innerHTML = stats([
+      [T("学到的带宽 b*", "Learned band b*"), tr.best.b.toFixed(3), "acc"],
+      [T("测试：Delta 对冲的 ", "Test: delta hedge ") + mName(), usd(r0.obj * 100), "neg"],
+      [T("测试：无交易带的 ", "Test: band policy ") + mName(), usd(rb.obj * 100), rb.obj < r0.obj ? "pos" : "neg"],
+      [T("交易次数：Delta / 带", "Trades: delta / band"), d0.trades.toFixed(0) + " / " + db.trades.toFixed(0)],
+    ]);
+    // histogram of per-contract P&L on the test paths
+    // histogram range from the data: 0.5th percentile of the worse policy to the best outcome, in $10 bins
+    const all = [...d0.pl, ...db.pl].map((x) => x * 100).sort((a, b) => a - b);
+    const lo = Math.floor(all[Math.floor(all.length * 0.005)] / 50) * 50, hi = Math.ceil(all[all.length - 1] / 50) * 50;
+    const nb = Math.max(20, Math.min(60, Math.round((hi - lo) / 10))), w = (hi - lo) / nb;
+    const hist = (pl) => { const c = new Array(nb).fill(0); for (const x of pl) { const v = x * 100; const i = Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / w))); c[i]++; } return c.map((y, i) => [lo + (i + 0.5) * w, y / pl.length * 100]); };
+    $("#dh-hist").innerHTML = lineChart({
+      series: [{ points: hist(d0.pl), cls: 2, label: T("Delta 对冲（b = 0）", "Delta hedge (b = 0)") }, { points: hist(db.pl), cls: 3, label: T("学到的无交易带", "Learned no-trade band") }],
+      xmin: lo, xmax: hi, ymin: 0, xlabel: T("到期对冲后盈亏，每张合约（美元，测试路径）", "Hedged P&L at expiry per contract ($, test paths)"), ylabel: T("路径占比 %", "% of paths"),
+      markers: [{ x: -rb.var95 * 100, label: "VaR 95% " + T("（带）", "(band)") }], H: 240, xfmt: (v) => (v < 0 ? "−$" : "$") + Math.abs(Math.round(v)),
+    });
+    const row = (name, d, r) => `<tr><td>${name}</td><td>${usd(r.mean * 100)}</td><td>${usd(d.cost * 100)}</td><td>$${(r.sd * 100).toFixed(0)}</td><td>${usd(r.cvar95 * 100)}</td><td>${d.trades.toFixed(0)}</td></tr>`;
+    $("#dh-tab").innerHTML = `<table><tr><th>${T("策略（测试路径，每张合约）", "Policy (test paths, per contract)")}</th><th>${T("平均盈亏", "Mean P&L")}</th><th>${T("平均成本", "Mean cost")}</th><th>${T("标准差", "Std. dev.")}</th><th>CVaR 95%</th><th>${T("交易次数", "Trades")}</th></tr>${row(T("Delta 对冲", "Delta hedge"), d0, r0)}${row(T("无交易带 b*", "No-trade band b*"), db, rb)}</table>`;
+  };
+  $("#dh-k").addEventListener("input", draw);
+  onSeg(root, "dh-freq", (v) => { perDay = +v; draw(); });
+  onSeg(root, "dh-m", (v) => { measure = v; draw(); });
+  onSeg(root, "dh-w", (v) => { world = v; draw(); });
+  draw();
 }

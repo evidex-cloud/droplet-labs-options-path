@@ -1,82 +1,70 @@
-// 交互演示：风险中性定价 —— 真实涨概率不影响期权价
-// 一步世界 S0=100→{Su,Sd}，看涨 K。让用户拖"真实上涨概率"，眼看：
-// 期权公平价(用风险中性 p 或等价复制成本)纹丝不动，而"真实世界期望回报"随之大变。
-// 把"真实概率决定你赚多少、风险中性概率决定期权值多少"钉进直觉。真算。
+// Main demo for lesson risk-neutral: sell the 1-year XYZ call at its Black-Scholes price and simulate 300 years
+// of XYZ with a chosen REAL drift μ. The unhedged seller's result depends on μ; the delta-hedged seller's does not.
+import * as O from "./_opt.js";
+import { barChart, seg, onSeg, slider, bindSliders, stats, tex } from "./_viz.js";
+
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-  const S0 = 100;
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🎭 ${T("风险中性：把“真实涨概率”拖来拖去，期权价为何不动", "Risk-neutral: drag the REAL up-probability — why the price won't budge")}</div>
-      <p class="demo-meta">${T("一步世界：S₀ = 100，一步后涨到 Sᵤ 或跌到 S_d。看涨行权价 K。", "One-step world: S₀ = 100; up to Sᵤ or down to S_d. Call strike K.")}</p>
-
-      <div class="demo-grid-3">
-        <div class="demo-block"><label class="demo-label">Sᵤ = <b id="rn-su-v">120</b></label><input class="demo-slider" id="rn-su" type="range" min="105" max="160" step="1" value="120"/></div>
-        <div class="demo-block"><label class="demo-label">S_d = <b id="rn-sd-v">90</b></label><input class="demo-slider" id="rn-sd" type="range" min="50" max="99" step="1" value="90"/></div>
-        <div class="demo-block"><label class="demo-label">K = <b id="rn-k-v">105</b></label><input class="demo-slider" id="rn-k" type="range" min="80" max="140" step="1" value="105"/></div>
-      </div>
-      <div class="demo-block"><label class="demo-label">${T("利率 r (一步=1 年)", "Rate r (step = 1 yr)")} = <b id="rn-r-v">5.0</b>%</label><input class="demo-slider" id="rn-r" type="range" min="0" max="8" step="0.5" value="5"/></div>
-
-      <div class="demo-block" style="border-top:1px solid var(--line-soft);padding-top:14px">
-        <label class="demo-label">🎚️ ${T("你认为的<b>真实</b>上涨概率", "Your <b>real-world</b> up-probability")} = <b id="rn-rp-v">70</b>%</label>
-        <input class="demo-slider" id="rn-rp" type="range" min="5" max="95" step="1" value="70"/>
-      </div>
-
-      <div class="stat-row">
-        <div class="stat"><div class="k">${T("风险中性概率 p", "Risk-neutral p")}</div><div class="v" id="rn-p">–</div></div>
-        <div class="stat"><div class="k">${T("真实世界 E[回报] (未贴现)", "Real-world E[payoff] (undisc.)")}</div><div class="v" id="rn-real">–</div></div>
-        <div class="stat"><div class="k">${T("期权公平价", "Option fair value")}</div><div class="v acc" id="rn-fair">–</div></div>
-      </div>
-
-      <div class="bar2" style="margin-top:14px"><div class="lab">${T("真实期望回报", "Real E[payoff]")}</div><div class="track"><div class="fill" id="rn-breal" style="background:var(--gold)"></div></div><div class="val" id="rn-vreal">–</div></div>
-      <div class="bar2"><div class="lab">${T("公平价(固定)", "Fair value (fixed)")}</div><div class="track"><div class="fill" id="rn-bfair" style="background:var(--accent)"></div></div><div class="val" id="rn-vfair">–</div></div>
-
-      <p class="demo-meta" id="rn-msg"></p>
-
-      <p class="demo-tip">${T("拖动“真实上涨概率”：金条(<b>你期望赚多少</b>)随它大幅起伏，但青条(<b>期权值多少</b>)<b>纹丝不动</b>。因为公平价 = 复制成本，只认 Sᵤ/S_d/K/r，与真实概率无关。真实概率高，只让你<b>期望中占便宜</b>(你的优势)，不该让你为期权多付一分钱——这正是风险中性最反直觉的一课。", "Drag the real up-probability: the gold bar (<b>what you expect to earn</b>) swings widely, but the teal bar (<b>what the option is worth</b>) <b>does not move</b>. Fair value = replication cost, set only by Sᵤ/S_d/K/r, independent of the real probability. A high real probability merely makes you <b>expect to profit</b> (your edge) — it shouldn't make you pay a cent more for the option. That's the most counter-intuitive lesson of risk-neutral pricing.")}</p>
-    </div>`;
-
-  const $ = (id) => root.querySelector(id);
-  const els = { su: $("#rn-su"), sd: $("#rn-sd"), k: $("#rn-k"), r: $("#rn-r"), rp: $("#rn-rp") };
-  const m = (v) => "$" + v.toFixed(2);
-
-  function paint() {
-    let Su = +els.su.value, Sd = +els.sd.value;
-    const K = +els.k.value, r = +els.r.value / 100, realP = +els.rp.value / 100;
-    if (Sd >= Su) Sd = Su - 1;
-    const dt = 1;
-
-    $("#rn-su-v").textContent = Su;
-    $("#rn-sd-v").textContent = Sd;
-    $("#rn-k-v").textContent = K;
-    $("#rn-r-v").textContent = (r * 100).toFixed(1);
-    $("#rn-rp-v").textContent = (realP * 100).toFixed(0);
-
-    const Cu = Math.max(Su - K, 0), Cd = Math.max(Sd - K, 0);
-    const u = Su / S0, d = Sd / S0;
-    const p = (Math.exp(r * dt) - d) / (u - d);              // 风险中性概率
-    const fair = Math.exp(-r * dt) * (p * Cu + (1 - p) * Cd); // 公平价(=复制成本)
-    const realE = realP * Cu + (1 - realP) * Cd;             // 真实世界期望回报(未贴现)
-
-    $("#rn-p").textContent = p.toFixed(3);
-    $("#rn-real").textContent = m(realE);
-    $("#rn-fair").textContent = m(fair);
-
-    const scale = Math.max(Cu, 1e-6); // 用最大可能回报作满刻度
-    $("#rn-breal").style.width = (realE / scale * 100).toFixed(1) + "%";
-    $("#rn-bfair").style.width = (fair / scale * 100).toFixed(1) + "%";
-    $("#rn-vreal").textContent = m(realE);
-    $("#rn-vfair").textContent = m(fair);
-
-    const edge = realE - fair; // 正=你的真实期望高于成本=有优势
-    $("#rn-msg").innerHTML = edge > 0.005
-      ? `<span class="pill ok">${T("你有优势", "You have an edge")}</span> ${T("真实期望回报", "Real E[payoff]")} ${m(realE)} > ${T("公平价", "fair value")} ${m(fair)}。${T("以公平价买入、若判断正确，长期期望为正——但这优势属于你，不抬高期权价。", "Buy at fair value and, if you're right, you expect to profit — but that edge is yours, it doesn't raise the option's price.")}`
-      : edge < -0.005
-        ? `<span class="pill bad">${T("无优势", "No edge")}</span> ${T("真实期望回报", "Real E[payoff]")} ${m(realE)} < ${T("公平价", "fair value")} ${m(fair)}。${T("即便如此，公平价依旧是这个数——它由复制成本决定。", "Even so, the fair value is still this number — set by replication cost.")}`
-        : `<span class="pill acc">${T("恰好持平", "Break-even")}</span> ${T("此时真实期望≈公平价。", "Here real expectation ≈ fair value.")}`;
-  }
-  Object.values(els).forEach((el) => el.addEventListener("input", paint));
-  paint();
+  let steps = 52, seed0 = 500;
+  const PATHS = 300, S = 100, K = 100, Tm = 1, r = 0.04;
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("漂移被对冲吃掉：300 个模拟年份", "The hedge eats the drift: 300 simulated years")}</div>
+    <p class="demo-meta">${T("交易商按 Black-Scholes 价卖出 1 年期、行权价 100 的 XYZ 看涨期权（S = 100，r = 4%），然后要么放着不管，要么持有 Δ 股并定期调整。", "A dealer sells the 1-year, 100-strike XYZ call at its Black-Scholes price (S = 100, r = 4%), then either leaves it unhedged or holds Δ shares and rebalances on a schedule.")}</p>
+    <div class="demo-row">${seg("rn-steps", [["12", T("每月调仓", "Monthly")], ["52", T("每周调仓", "Weekly")], ["252", T("每天调仓", "Daily")]], "52")}
+      <div class="demo-btns" style="margin:0"><button class="demo-btn" data-new="1">${T("换一批路径", "New paths")}</button></div></div>
+    <div class="demo-grid">
+      ${slider("rn-mu", T("真实漂移 μ", "Real drift μ"), -10, 25, 1, 10)}
+      ${slider("rn-v", T("波动率 σ（真实 = 定价用）", "Volatility σ (real = priced)"), 10, 40, 1, 20)}
+    </div>
+    <div class="demo-math" id="rn-f"></div>
+    <div id="rn-stats"></div>
+    <div class="demo-grid">
+      <div><div class="demo-label">${T("不对冲的卖方：每股盈亏分布（横轴约 −50 到 +12）", "Unhedged seller: P&L per share (x-axis about −50 to +12)")}</div><div id="rn-h1"></div></div>
+      <div><div class="demo-label">${T("对冲的卖方：每股盈亏分布（横轴只有 −4 到 +4）", "Hedged seller: P&L per share (x-axis only −4 to +4)")}</div><div id="rn-h2"></div></div>
+    </div>
+    <p class="demo-tip">${T("试试：把 μ 从 −10% 拖到 25%。左图整体滑动、平均值跟着 μ 大变；右图始终挤在 0 附近。再把调仓从每月换成每天，右图变得更窄——剩下的只是离散调仓的误差。", "Try this: drag μ from −10% to 25%. The left histogram slides and its average swings with μ; the right one stays bunched around 0. Switch from monthly to daily rebalancing and the right one narrows further: what remains is just the error from hedging in discrete steps.")}</p>
+  </div>`;
+  const $ = (s) => root.querySelector(s);
+  const sgnf = (x, d = 2) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(d);
+  const hist = (xs, lo, hi, w, cls) => {
+    const n = Math.round((hi - lo) / w), c = new Array(n).fill(0);
+    for (const x of xs) c[Math.max(0, Math.min(n - 1, Math.floor((x - lo) / w)))]++;
+    return barChart({ bars: c.map((k, i) => ({ label: (lo + i * w).toFixed(w < 1 ? 1 : 0), value: (100 * k) / xs.length, cls })), yfmt: (v) => v.toFixed(0) + "%", W: 330, H: 210 });
+  };
+  const draw = (v) => {
+    const mu = v["rn-mu"] / 100, sigma = v["rn-v"] / 100;
+    const prem = O.bsPrice({ S, K, T: Tm, r, sigma, type: "call" });
+    const grown = prem * Math.exp(r * Tm);
+    // exact real-world expected payoff: S e^{μT} N(d1) − K N(d2) with drift μ  (= bsPrice with r = 0, q = −μ)
+    const eP = O.bsPrice({ S, K, T: Tm, r: 0, q: -mu, sigma, type: "call" });
+    const hedged = [], unhedged = [];
+    for (let i = 0; i < PATHS; i++) {
+      const h = O.hedgeSim({ S0: S, K, T: Tm, r, sigmaImp: sigma, sigmaReal: sigma, steps, seed: seed0 + i, mu });
+      hedged.push(h.pnl);
+    }
+    // the unhedged seller only needs the end price, so sample it directly (10,000 antithetic pairs) for a sharp average
+    const RU = O.rng(seed0 + 77), m = (mu - sigma * sigma / 2) * Tm, s = sigma * Math.sqrt(Tm);
+    for (let i = 0; i < 10000; i++) {
+      const z = RU.normal();
+      for (const e of [z, -z]) unhedged.push(grown - Math.max(S * Math.exp(m + s * e) - K, 0));
+    }
+    const mean = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+    const sd = (a) => { const m = mean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / (a.length - 1)); };
+    const mh = mean(hedged), sh = sd(hedged), mu_ = mean(unhedged), su = sd(unhedged);
+    $("#rn-f").innerHTML = tex(String.raw`\underbrace{e^{-rT}\E^{\Q}[\text{payoff}]}_{\text{${T("价格", "price")}}} = ${prem.toFixed(2)}`, true) + tex(String.raw`\underbrace{e^{-rT}\E^{\P}[\text{payoff}]}_{\text{${T("混搭（错）", "mixed (wrong)")}}} = e^{-0.04} \times ${eP.toFixed(2)} = ${(eP * Math.exp(-r * Tm)).toFixed(2)}`, true);
+    $("#rn-stats").innerHTML = stats([
+      [T("卖出价（ℚ，不随 μ 变）", "Sale price (ℚ, ignores μ)"), "$" + prem.toFixed(2), "acc"],
+      [T("不对冲：期望盈亏（精确）", "Unhedged: expected P&L (exact)"), sgnf(grown - eP), grown - eP >= 0 ? "pos" : "neg"],
+      [T("不对冲：模拟平均 ± 标准误", "Unhedged: simulated mean ± s.e."), `${sgnf(mu_)} ± ${(su / Math.sqrt(unhedged.length / 2)).toFixed(2)}`],
+      [T("对冲：模拟平均", "Hedged: simulated mean"), sgnf(mh)],
+      [T("对冲：标准差", "Hedged: std. deviation"), sh.toFixed(2)],
+      [T("不对冲：标准差", "Unhedged: std. deviation"), su.toFixed(2)],
+    ]);
+    $("#rn-h1").innerHTML = hist(unhedged, -52, 12, 4, 2);
+    $("#rn-h2").innerHTML = hist(hedged, -4, 4, 0.5, 3);
+  };
+  const run = bindSliders(root, { "rn-mu": (x) => x + "%", "rn-v": (x) => x + "%" }, draw);
+  onSeg(root, "rn-steps", (x) => { steps = +x; run(); });
+  root.querySelector("[data-new]").addEventListener("click", () => { seed0 += PATHS; run(); });
 }

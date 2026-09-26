@@ -1,88 +1,57 @@
-// 交互演示：备兑开仓 · 持股 + 卖出看涨
-// legs = 多头股票(entry 可调) + 空头看涨(K 可调, 权利金 c 可调)。
-// payoffSVG 画 60~140 的台阶形损益；stat-row 给 权利金收入 / 最大盈利 / 盈亏平衡；
-// 拖动看涨行权价，直观看到“上行封顶 vs 多收租”的权衡。
-import { payoffSVG, payoffBlock, netPL } from "./_payoff.js";
+// Main demo for lesson covered-call: 100 XYZ shares + one short call. Pick strike, expiry, implied vol and how far
+// into the trade you are; see the expiry payoff, today's mark-to-model curve, the three key numbers and the Greek signature.
+import * as O from "./_opt.js";
+import { payoffChart, slider, bindSliders, stats, tex } from "./_viz.js";
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-  const MULT = 100;
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">🏠 ${T("备兑开仓 · 持股 + 卖出看涨", "Covered Call · Stock + Short Call")}</div>
-
-      <div class="demo-grid-3">
-        <div class="demo-block"><label class="demo-label">${T("持股成本", "Stock cost")} = <b id="cc-ev">100</b></label><input class="demo-slider" id="cc-e" type="range" min="80" max="120" step="1" value="100"/></div>
-        <div class="demo-block"><label class="demo-label">${T("卖出看涨行权价 K", "Short call strike K")} = <b id="cc-kv">105</b></label><input class="demo-slider" id="cc-k" type="range" min="95" max="135" step="1" value="105"/></div>
-        <div class="demo-block"><label class="demo-label">${T("收到的权利金", "Premium received")} = <b id="cc-cv">3.0</b></label><input class="demo-slider" id="cc-c" type="range" min="0.5" max="10" step="0.5" value="3"/></div>
-      </div>
-
-      <div class="legs" id="cc-legs"></div>
-      <div id="cc-chart"></div>
-
-      <div class="stat-row">
-        <div class="stat"><div class="k">${T("权利金收入", "Premium income")}</div><div class="v acc" id="cc-inc">–</div></div>
-        <div class="stat"><div class="k">${T("最大盈利", "Max profit")}</div><div class="v pos" id="cc-mp">–</div></div>
-        <div class="stat"><div class="k">${T("盈亏平衡", "Breakeven")}</div><div class="v" id="cc-be">–</div></div>
-        <div class="stat"><div class="k">${T("到期盈亏(每张)", "P&L at expiry")}</div><div class="v" id="cc-pl">–</div></div>
-      </div>
-
-      <p class="demo-tip" id="cc-tip"></p>
-    </div>`;
-
+  const S0 = 100, r = 0.04;
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("备兑看涨：选行权价，看租金与天花板", "Covered call: pick a strike, see the rent and the ceiling")}</div>
+    <div class="demo-grid">
+      ${slider("cc-k", T("卖出看涨的行权价 K", "Strike K of the call sold"), 98, 115, 1, 105)}
+      ${slider("cc-d", T("到期天数", "Days to expiry"), 7, 90, 1, 30)}
+      ${slider("cc-v", T("隐含波动率 σ", "Implied vol σ"), 10, 50, 1, 20)}
+      ${slider("cc-e", T("已经过去的时间（到期前的曲线）", "Time already passed (the before-expiry curve)"), 0, 100, 5, 0)}
+    </div>
+    <div id="cc-chart"></div>
+    <div class="demo-math" id="cc-f"></div>
+    <div id="cc-stats"></div>
+    <div class="demo-label">${T("整个仓位的希腊字母签名（1 张合约 = 100 股 + 1 张空头看涨）", "Greek signature of the whole position (one unit = 100 shares + 1 short call)")}</div>
+    <div id="cc-greeks"></div>
+    <p class="demo-tip">${T("试试：把 K 拉到 100，租金最高但天花板就在现价；拉到 112，几乎没有租金，也几乎不封顶。再把“已经过去的时间”拉到一半，看虚线：股价大涨时，到期前的盈亏还够不到天花板——空头看涨里还剩时间价值。", "Try this: drag K to 100 — the most rent, but the ceiling sits right at today's price; drag it to 112 — almost no rent and almost no cap. Then move “time already passed” to halfway and watch the dashed curve: after a big rally the P&L is still below the ceiling, because the short call still holds time value.")}</p>
+  </div>`;
   const $ = (s) => root.querySelector(s);
-  const eSl = $("#cc-e"), kSl = $("#cc-k"), cSl = $("#cc-c");
-
-  function legRow(side, pill, pillCls, tag) {
-    const sideCls = side === "BUY" ? "side-buy" : "side-sell";
-    const sideTxt = side === "BUY" ? T("买入", "BUY") : T("卖出", "SELL");
-    return `<div class="leg"><span class="${sideCls}">${sideTxt}</span><span class="leg-pill ${pillCls}">${pill}</span><span class="leg-tag">${tag}</span></div>`;
-  }
-
-  function paint() {
-    const entry = +eSl.value, K = +kSl.value, c = +cSl.value;
-    $("#cc-ev").textContent = entry;
-    $("#cc-kv").textContent = K;
-    $("#cc-cv").textContent = c.toFixed(1);
-
-    const legs = [
-      { type: "stock", side: "long", entry, qty: 1 },
-      { type: "call", side: "short", strike: K, premium: c, qty: 1 },
-    ];
-
-    $("#cc-legs").innerHTML =
-      legRow("BUY", T("股票", "STOCK"), "call", `${100} ${T("股 @ ", "sh @ ")}${entry}`) +
-      legRow("SELL", "CALL", "put", `K=${K}　${T("权利金", "prem")} ${c.toFixed(1)}`);
-
-    // 注意：股票 STOCK pill 复用 .call 配色仅为视觉；不影响计算
-    const res = payoffSVG({ legs, lo: 60, hi: 140, spot: entry, spotLabel: T("现价", "spot"), uid: "cc" });
-    $("#cc-chart").innerHTML = payoffBlock(res, [
-      ["var(--green-soft)", T("盈利", "Profit")],
-      ["var(--red-soft)", T("亏损", "Loss")],
-      ["var(--gold)", T("行权价", "Strike")],
+  bindSliders(root, { "cc-k": (x) => "$" + x, "cc-d": (x) => x + T(" 天", " days"), "cc-v": (x) => x + "%", "cc-e": (x) => x + "%" }, (v) => {
+    const K = v["cc-k"], days = v["cc-d"], sigma = v["cc-v"] / 100, Tm = days / 365;
+    const g = O.greeks({ S: S0, K, T: Tm, r, sigma, type: "call" });
+    const c = g.price;
+    const legs = [{ type: "stock", side: "long", entry: S0 }, { type: "call", side: "short", K, premium: c, T: Tm }];
+    const elDays = Math.round((v["cc-e"] / 100) * days);
+    const pc = payoffChart({
+      legs, lo: 75, hi: 125, spot: S0, mult: 100, today: elDays < days ? { elapsed: elDays / 365, sigma, r } : null,
+      xlabel: T("到期时 XYZ 价格", "XYZ price"), ylabel: T("盈亏（1 张，美元）", "P&L per unit ($)"),
+      labels: { expiry: T("备兑看涨·到期", "Covered call at expiry"), today: T(`备兑看涨·第 ${elDays} 天`, `Covered call on day ${elDays}`), spot: T("现价", "spot"), be: T("平衡", "BE") },
+      extra: [{ f: (x) => (x - S0) * 100, cls: 5, dashed: true, label: T("只持股", "Shares only") }],
+    });
+    $("#cc-chart").innerHTML = pc.html;
+    const maxP = K - S0 + c, be = S0 - c, stat = c / S0, ann = Math.pow(1 + stat, 365 / days) - 1, called = maxP / S0, annC = Math.pow(1 + called, 365 / days) - 1;
+    $("#cc-f").innerHTML = tex(String.raw`\begin{gathered}\text{${T("最大盈利", "max profit")}} = (K - S_0) + c \\ = (${K} - 100) + ${c.toFixed(2)} = ${maxP.toFixed(2)} \\ \text{${T("平衡价", "breakeven")}} = S_0 - c = ${be.toFixed(2)}\end{gathered}`, true)
+      + tex(String.raw`\begin{gathered}\text{${T("静态收益年化", "static yield, annualised")}} \\ = \left(1 + \frac{${c.toFixed(2)}}{100}\right)^{365/${days}} - 1 = ${(ann * 100).toFixed(1)}\%\end{gathered}`, true);
+    $("#cc-stats").innerHTML = stats([
+      [T("收到的租金（1 张）", "Rent received (1 contract)"), "+$" + (c * 100).toFixed(0), "pos"],
+      [T("最大盈利", "Max profit"), "$" + (maxP * 100).toFixed(0), "pos"],
+      [T("盈亏平衡", "Breakeven"), "$" + be.toFixed(2), "acc"],
+      [T("被行权时的收益（年化）", "Return if called (annualised)"), (called * 100).toFixed(2) + "% (" + (annC * 100).toFixed(0) + "%)"],
+      [T("风险中性 P(被行权)", "Risk-neutral P(called)"), (g.probITM * 100).toFixed(1) + "%"],
     ]);
-
-    const income = c * MULT;
-    const maxProfit = (K - entry + c) * MULT; // (行权价−成本+权利金)×100
-    const be = entry - c;
-    $("#cc-inc").textContent = "+$" + income.toFixed(0);
-    $("#cc-mp").textContent = "+$" + maxProfit.toFixed(0);
-    $("#cc-be").textContent = be.toFixed(1);
-
-    // 到期盈亏取“现价处”作为参考点（=权利金收入，因为未涨过行权价时股票不赚不亏）
-    const plAtSpot = netPL(legs, entry) * MULT;
-    const plCell = $("#cc-pl");
-    plCell.textContent = (plAtSpot >= 0 ? "+$" : "−$") + Math.abs(plAtSpot).toFixed(0);
-    plCell.className = "v " + (plAtSpot >= 0 ? "pos" : "neg");
-
-    $("#cc-tip").textContent = T(
-      `卖出的看涨在 K=${K} 把上行削成天花板：最大盈利 = (${K}−${entry}+${c.toFixed(1)})×100 = $${maxProfit.toFixed(0)}，封顶。把行权价拖高→多留上涨但权利金更薄；拖低→收租更猛但更快踏空。盈亏平衡 = 成本−权利金 = ${be.toFixed(1)}，权利金只摊低这一点成本，挡不住大跌。`,
-      `The short call caps the upside at K=${K}: max profit = (${K}−${entry}+${c.toFixed(1)})×100 = $${maxProfit.toFixed(0)}. Drag the strike up → keep more upside but thinner premium; down → richer income but capped sooner. Breakeven = cost−premium = ${be.toFixed(1)}; the premium only softens cost a bit — it won't stop a big drop.`
-    );
-  }
-
-  [eSl, kSl, cSl].forEach((el) => el.addEventListener("input", paint));
-  paint();
+    const pg = O.positionGreeks(legs, S0, { elapsed: 0, sigma, r });
+    $("#cc-greeks").innerHTML = stats([
+      ["Δ", (pg.delta * 100).toFixed(0) + T(" 股", " sh")],
+      ["Γ", "−" + Math.abs(pg.gamma * 100).toFixed(2), "neg"],
+      [T("Θ（每天）", "Θ per day"), "+$" + (pg.theta * 100).toFixed(2), "pos"],
+      [T("ν（每波动率点）", "ν per vol pt"), "−$" + Math.abs(pg.vega * 100).toFixed(2), "neg"],
+    ]);
+  });
 }

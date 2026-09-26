@@ -1,110 +1,72 @@
-// demos/butterfly.js —— 长看涨蝶式 损益演示
-// 买 K1 + 卖 2×K2(中心) + 买 K3，等距翼宽可调；payoffSVG 画“帐篷”、标两个BE；
-// stat-row 给 最大盈利(在中心)/最大亏损(=净付出)/两个BE/净成本。全部真算（netPL 引擎）。
-import { payoffSVG, payoffBlock, netPL } from "./_payoff.js";
+// Main demo for lesson butterfly: build a call fly, put fly, short iron fly or broken-wing fly on XYZ;
+// see the tent at expiry and today, and read the fly's price as a probability.
+import * as O from "./_opt.js";
+import { payoffChart, seg, onSeg, slider, bindSliders, stats, tex } from "./_viz.js";
 
 export default function mount(root, lang) {
   const en = lang === "en";
   const T = (zh, e) => (en ? e : zh);
-  const MULT = 100;
-  const SPOT = 100, CENTER = 100;
-
-  // 中心固定 K2=100；翼宽 w 可调；权利金按一个简单的“离中心越近越贵”近似给出，
-  // 但为保证教学数字干净，这里用固定的、与课文一致的报价表（buy95@7, sell100@4, buy105@2 → 翼宽5）。
-  // 翼宽变化时按比例近似缩放权利金，保证净付出始终为正的小额借记。
-  let w = 5;
-
-  // 由翼宽生成三条腿的权利金（近似：中心ATM最贵，两翼递减；保持净借记>0）
-  function premiums(width) {
-    // 经验近似：ATM call ≈ 4 + 0.18*width；每偏离 width 元，价值下降一档
-    const k2 = 4 + 0.18 * width;          // 中心(卖2)
-    const k1 = k2 + 0.62 * width;          // 低行权价(买，更实值更贵)
-    const k3 = Math.max(0.3, k2 - 0.42 * width); // 高行权价(买，更虚更便宜)
-    return { k1, k2, k3 };
-  }
-
-  function buildLegs() {
-    const K1 = CENTER - w, K2 = CENTER, K3 = CENTER + w;
-    const p = premiums(w);
-    return [
-      { type: "call", side: "long", strike: K1, premium: p.k1, qty: 1 },
-      { type: "call", side: "short", strike: K2, premium: p.k2, qty: 2 },
-      { type: "call", side: "long", strike: K3, premium: p.k3, qty: 1 },
-    ];
-  }
-
-  root.innerHTML = `
-    <div class="demo">
-      <div class="demo-head">⛺ ${T("长看涨蝶式 · 押“钉在中间”", "Long call butterfly · betting it pins the middle")}</div>
-
-      <div class="demo-block">
-        <div class="demo-label">${T("翼宽 w（行权价 = 100−w / 100 / 100+w）", "Wing width w (strikes = 100−w / 100 / 100+w)")} <b id="bf-wv">${w}</b></div>
-        <input class="demo-slider" id="bf-w" type="range" min="2" max="20" step="1" value="${w}"/>
-      </div>
-
-      <div class="legs" id="bf-legs"></div>
-
-      <div id="bf-chart"></div>
-
-      <div class="stat-row">
-        <div class="stat"><div class="k">${T("最大盈利", "Max profit")}</div><div class="v pos" id="bf-mp">–</div></div>
-        <div class="stat"><div class="k">${T("最大亏损", "Max loss")}</div><div class="v neg" id="bf-ml">–</div></div>
-        <div class="stat"><div class="k">${T("下盈亏平衡", "Lower BE")}</div><div class="v acc" id="bf-be1">–</div></div>
-        <div class="stat"><div class="k">${T("上盈亏平衡", "Upper BE")}</div><div class="v acc" id="bf-be2">–</div></div>
-        <div class="stat"><div class="k">${T("净成本", "Net debit")}</div><div class="v" id="bf-cost">–</div></div>
-      </div>
-
-      <p class="demo-tip" id="bf-tip"></p>
-    </div>`;
-
+  let kind = "call";
+  root.innerHTML = `<div class="demo">
+    <div class="demo-head">${T("蝶式搭建器：帐篷、时间与隐含概率", "Butterfly builder: the tent, time and the implied probability")}</div>
+    <div class="demo-row">${seg("bf-kind", [["call", T("看涨蝶式", "Call fly")], ["put", T("看跌蝶式", "Put fly")], ["iron", T("卖出铁蝶", "Short iron fly")], ["broken", T("断翼看涨蝶式", "Broken-wing call fly")]], kind)}</div>
+    <div class="demo-grid">
+      ${slider("bf-k", T("身体（卖出行权价）", "Body (short strike)"), 90, 110, 1, 100)}
+      ${slider("bf-w", T("翅膀间距", "Wing spacing"), 1, 10, 1, 5)}
+      ${slider("bf-d", T("建仓时的到期天数", "Days to expiry at entry"), 5, 60, 1, 30)}
+      ${slider("bf-e", T("已经过去的天数", "Days already passed"), 0, 59, 1, 20)}
+      ${slider("bf-iv", T("隐含波动率", "Implied vol"), 10, 40, 1, 20)}
+    </div>
+    <div class="demo-math" id="bf-f"></div>
+    <div id="bf-stats"></div>
+    <div id="bf-chart"></div>
+    <p class="demo-tip">${T("试试：把“已经过去的天数”从 0 拖到接近到期，看虚线怎样从一条平缓的小丘长成尖帐篷——大部分利润在最后几天才出现。再把间距调到 1，蝶式价格 ÷ 间距² 就几乎等于 100 处的概率密度。", "Try this: drag “days already passed” from 0 towards expiry and watch the dashed curve grow from a low hill into the sharp tent — most of the profit appears in the last few days. Set the spacing to 1 and the fly's price divided by spacing² is almost exactly the probability density at the body.")}</p>
+  </div>`;
   const $ = (s) => root.querySelector(s);
-
-  function legRow(leg) {
-    const buy = leg.side === "long";
-    const sideTxt = buy ? T("买入", "BUY") : T("卖出", "SELL");
-    const sideCls = buy ? "side-buy" : "side-sell";
-    return `<div class="leg">
-      <span class="${sideCls}">${sideTxt}</span>
-      <span class="leg-pill call">CALL</span>
-      <span class="leg-tag">K=${leg.strike}　${T("权利金", "prem")} ${leg.premium.toFixed(2)}　×${leg.qty}</span>
-    </div>`;
-  }
-
-  function paint() {
-    const legs = buildLegs();
-    const LO = Math.max(40, CENTER - w * 3.2), HI = CENTER + w * 3.2;
-
-    $("#bf-legs").innerHTML = legs.map(legRow).join("");
-
-    const res = payoffSVG({ legs, lo: LO, hi: HI, spot: SPOT, spotLabel: T("现价", "spot"), uid: "bf" });
-    $("#bf-chart").innerHTML = payoffBlock(res, [
-      ["var(--green-soft)", T("盈利", "Profit")],
-      ["var(--red-soft)", T("亏损", "Loss")],
-      ["var(--gold)", T("行权价", "Strike")],
+  const r = 0.04, S0 = 100;
+  const draw = (v) => {
+    const K = v["bf-k"], w = v["bf-w"], dte = v["bf-d"], Tm = dte / 365, sig = v["bf-iv"] / 100;
+    const eIn = $("#bf-e");
+    eIn.max = String(dte - 1);
+    const el = Math.min(v["bf-e"], dte - 1);
+    if (+eIn.value > el) eIn.value = String(el);
+    $("#bf-e-v").textContent = el + T(" 天", " days");
+    const px = (k, type) => O.bsPrice({ S: S0, K: k, T: Tm, r, sigma: sig, type });
+    const L = (type, side, k, qty = 1) => ({ type, side, K: k, qty, premium: px(k, type), T: Tm });
+    let legs;
+    if (kind === "call") legs = [L("call", "long", K - w), L("call", "short", K, 2), L("call", "long", K + w)];
+    else if (kind === "put") legs = [L("put", "long", K - w), L("put", "short", K, 2), L("put", "long", K + w)];
+    else if (kind === "iron") legs = [L("call", "short", K), L("put", "short", K), L("put", "long", K - w), L("call", "long", K + w)];
+    else legs = [L("call", "long", K - w), L("call", "short", K, 2), L("call", "long", K + 2 * w)];
+    const cash = legs.reduce((a, l) => a + (l.side === "long" ? -1 : 1) * l.premium * l.qty, 0); // + = credit
+    const st = O.payoffStats(legs, 1, 250);
+    const cK = px(K, "call"), cLo = px(K - w, "call"), cHi = px(K + w, "call");
+    const fly = cLo - 2 * cK + cHi;
+    const probFly = (fly / w) * Math.exp(r * Tm);
+    const probLN = O.probAbove(S0, K - w / 2, Tm, sig, r) - O.probAbove(S0, K + w / 2, Tm, sig, r);
+    const dens = O.lognormalPdf(K, S0, Tm, sig, r);
+    $("#bf-f").innerHTML = tex(String.raw`\begin{gathered}\text{Fly} = C(${K - w}) - 2\,C(${K}) + C(${K + w}) \\ = ${cLo.toFixed(3)} - 2 \times ${cK.toFixed(3)} + ${cHi.toFixed(3)} = ${fly.toFixed(3)} \\ \approx e^{-rT} f_{\Q}(${K})\,(${w})^2 = ${(Math.exp(-r * Tm) * dens * w * w).toFixed(3)}\end{gathered}`, true);
+    const g = O.positionGreeks(legs, S0, { sigma: sig, r });
+    // the grid in payoffStats can step over the body, so check the body strike itself
+    const mp = Math.max(st.maxProfit, O.netPL(legs, K)), ml = st.maxLoss;
+    const sg = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(3);
+    $("#bf-stats").innerHTML = stats([
+      [cash >= 0 ? T("收到", "Credit") : T("付出", "Debit"), "$" + Math.abs(cash * 100).toFixed(0), "acc"],
+      [T("最大利润", "Max profit"), isFinite(mp) ? "$" + (mp * 100).toFixed(0) : "∞", "pos"],
+      [T("最大亏损", "Max loss"), isFinite(ml) ? "−$" + Math.abs(ml * 100).toFixed(0) : "∞", "neg"],
+      [T("盈亏平衡点", "Breakevens"), st.breakevens.map((b) => b.toFixed(2)).join(" / ") || "–"],
+      [T(`蝶式隐含：落在 ${K}±${w / 2} 的概率`, `Fly-implied P(${K}±${w / 2})`), (probFly * 100).toFixed(1) + "%"],
+      [T("对数正态模型下的同一概率", "Same probability, lognormal"), (probLN * 100).toFixed(1) + "%"],
+      [T("建仓 Δ / Γ", "Entry Δ / Γ"), `${sg(g.delta)} / ${sg(g.gamma)}`],
+      [T("建仓每天 Θ / Vega", "Entry Θ per day / vega"), `${sg(g.theta)} / ${sg(g.vega)}`],
     ]);
-
-    // 净付出（每股）：买的两翼 − 卖的中间2张
-    const netCostPS = legs.reduce((a, l) => a + (l.side === "long" ? 1 : -1) * l.premium * l.qty, 0);
-    // 真算峰值（中心 K2=100）与底（两翼外）
-    const peakPS = netPL(legs, CENTER);     // 最大盈利/股
-    const floorPS = netPL(legs, CENTER - w * 3); // 远离中心 → 最大亏损/股（= −净付出）
-
-    const bes = res.breakevens;
-    $("#bf-mp").textContent = "+$" + (peakPS * MULT).toFixed(0);
-    $("#bf-ml").textContent = "−$" + Math.abs(floorPS * MULT).toFixed(0);
-    $("#bf-be1").textContent = bes.length ? bes[0].toFixed(2) : "—";
-    $("#bf-be2").textContent = bes.length > 1 ? bes[1].toFixed(2) : "—";
-    $("#bf-cost").textContent = "−$" + (netCostPS * MULT).toFixed(0);
-
-    // 理论核对：最大盈利 = 翼宽 − 净付出；BE = 100 ± 最大盈利
-    const theoMax = w - netCostPS;
-    $("#bf-tip").innerHTML = T(
-      `最大盈利 <b>$${(peakPS * MULT).toFixed(0)}</b> 只在到期价正好等于中心 <b>100</b> 时取得（= 翼宽 ${w} − 净付出 ${netCostPS.toFixed(2)} = ${theoMax.toFixed(2)}/股）。落在两翼外只亏净付出 $${Math.abs(netCostPS * MULT).toFixed(0)}；两个盈亏平衡 = 100 ± 最大盈利/股 = <b>${(100 - theoMax).toFixed(1)} / ${(100 + theoMax).toFixed(1)}</b>。拖动翼宽：翼越宽，帐篷越高但成本/风险也越大。它 <b>−Vega</b>（押静止、盼 IV 回落）。`,
-      `Max profit <b>$${(peakPS * MULT).toFixed(0)}</b> is reached only when expiry price lands exactly on the center <b>100</b> (= wing width ${w} − net debit ${netCostPS.toFixed(2)} = ${theoMax.toFixed(2)}/sh). Outside the wings you lose just the net debit $${Math.abs(netCostPS * MULT).toFixed(0)}; the two breakevens = 100 ± max-profit/sh = <b>${(100 - theoMax).toFixed(1)} / ${(100 + theoMax).toFixed(1)}</b>. Drag the wing: wider wings raise the tent but cost/risk grow too. It is <b>−Vega</b> (bets on stillness, wants IV to fall).`
-    );
-  }
-
-  $("#bf-w").addEventListener("input", (e) => { w = +e.target.value; $("#bf-wv").textContent = w; paint(); });
-
-  paint();
+    const { html } = payoffChart({
+      legs, lo: Math.max(1, K - w - 12), hi: K + (kind === "broken" ? 2 * w : w) + 12, spot: S0, mult: 100, today: { elapsed: el / 365, sigma: sig, r },
+      xlabel: T("XYZ 价格", "XYZ price"), ylabel: T("每组损益（美元）", "P&L per set ($)"),
+      labels: { expiry: T("到期", "At expiry"), today: T(`过去 ${el} 天后（剩 ${dte - el} 天）`, `After ${el} days (${dte - el} left)`), spot: T("今天", "today"), be: T("平衡", "BE") },
+    });
+    $("#bf-chart").innerHTML = html;
+  };
+  const run = bindSliders(root, { "bf-k": (x) => "$" + x, "bf-w": (x) => "$" + x, "bf-d": (x) => x + T(" 天", " days"), "bf-e": (x) => x + T(" 天", " days"), "bf-iv": (x) => x + "%" }, draw);
+  onSeg(root, "bf-kind", (v) => { kind = v; run(); });
 }
