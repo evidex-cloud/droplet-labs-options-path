@@ -573,6 +573,7 @@ a.xref:hover { background: var(--orange-soft); border-bottom-color: var(--orange
   body.sb-open .sidebar { transform: none; }
   body.sb-open .scrim { opacity: 1; pointer-events: auto; }
   body.sb-open { overflow: hidden; }
+  body.sb-open #app { z-index: 65; } /* lift the drawer + scrim above the floating nav */
 }
 @media (max-width: 860px) {
   .sec-grid, .tier-grid { grid-template-columns: 1fr; gap: 16px; }
